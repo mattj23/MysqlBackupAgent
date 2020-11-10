@@ -1,7 +1,35 @@
 ﻿@page "/"
+@using MysqlBackup.Services
+@using System.Reactive.Linq
+@using System.Threading
+@inject BackupTargetService BackupTargets
 
-<h1>Hello, world!</h1>
+<h3>MySQL Backup Utility</h3>
+This is a static service, all configuration is performed through the 'appsettings.json' file.
 
-Welcome to your new app.
+@foreach (var pair in BackupTargets.Targets)
+{
+    <BSCard Color="Color.Dark">
+        <BSCard CardType="CardType.Body">
+            <BSCard CardType="CardType.Title">@pair.Value.Name</BSCard>
+            <BSCard CardType="CardType.Text">
+                Backup runs in @pair.Value.RunsInText
+            </BSCard>
+        </BSCard>
+    </BSCard>
+    <br />
+}
 
-<SurveyPrompt Title="How is Blazor working for you?"/>
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        Observable.Interval(TimeSpan.FromSeconds(5))
+            .ObserveOn(SynchronizationContext.Current)
+            .Subscribe(l => StateHasChanged());
+    }
+
+
+
+}
