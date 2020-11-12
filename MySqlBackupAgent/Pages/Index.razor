@@ -26,7 +26,8 @@ This is a static service, all configuration is performed through the 'appsetting
                 }
                 else if (target.State == TargetState.Compressing)
                 {
-                    <span>Compressing Backup...</span>
+                    <div>Compressing Backup File</div><br />
+                    <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
                 }
             </BSCard>
         </BSCard>
@@ -58,7 +59,8 @@ This is a static service, all configuration is performed through the 'appsetting
             _targets[pair.Key].NextTime = pair.Value.NextTime;
 
             // Update for progress bar
-            pair.Value.Progress.ObserveOn(context)
+            pair.Value.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
+                .ObserveOn(context)
                 .Subscribe(d =>
                 {
                     _targets[pair.Key].Progress = d;

@@ -4,11 +4,10 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using Cronos;
+using ICSharpCode.SharpZipLib.BZip2;
+using ICSharpCode.SharpZipLib.GZip;
 using Microsoft.Extensions.Configuration;
 using MySql.Data.MySqlClient;
-using SharpCompress.Common;
-using SharpCompress.Writers;
-using CompressionType = SharpCompress.Common.CompressionType;
 
 namespace MySqlBackupAgent.Models
 {
@@ -157,14 +156,22 @@ namespace MySqlBackupAgent.Models
             
             // Compress file
             State = TargetState.Compressing;
-            var compressedPath = filePath + ".bz2";
-            var options = new WriterOptions(CompressionType.BZip2);
-            using (var readStream = File.OpenRead(filePath))
-            using (var writeStream = File.OpenWrite(compressedPath))
+            var compressedPath = filePath + ".gz";
+            using var outputFileStream = File.OpenWrite(compressedPath);
+            using var inputFileStream = File.OpenRead(filePath);
+            using var writeStream = new GZipOutputStream(outputFileStream);
+            
+            var buffer = new byte[1024 * 1000];
+            int bytesRead;
+            int totalRead = 0;
+            while ((bytesRead = await inputFileStream.ReadAsync(buffer)) > 0)
             {
-                using var writer = WriterFactory.Open(writeStream, ArchiveType.Zip, options);
-                writer.Write(fileName, readStream);
+                totalRead += bytesRead;
+                writeStream.Write(buffer);
+                
+                _progressSubject.OnNext(100.0 * (double) totalRead / (double) inputFileStream.Length);
             }
+            
 
             State = TargetState.Scheduled;
             _progressSubject.OnNext(100);
