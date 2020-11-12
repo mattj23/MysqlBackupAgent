@@ -1,6 +1,7 @@
 # Common IntelliJ Platform excludes
 
 appsettings.Development.json
+scratch_dir/
 
 # User specific
 **/.idea/**/workspace.xml

@@ -10,9 +10,9 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using MysqlBackup.Services;
+using MySqlBackupAgent.Services;
 
-namespace MysqlBackup
+namespace MySqlBackupAgent
 {
     public class Startup
     {

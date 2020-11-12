@@ -1,6 +1,6 @@
 using System;
 
-namespace MysqlBackup.Models
+namespace MySqlBackupAgent.Models
 {
     /// <summary>
     /// A simplified representation of a backup target, used as a display model

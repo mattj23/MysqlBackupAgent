@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MysqlBackup", "MysqlBackup\MysqlBackup.csproj", "{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MySqlBackupAgent", "MySqlBackupAgent\MySqlBackupAgent.csproj", "{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

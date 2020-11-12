@@ -7,7 +7,7 @@ using Cronos;
 using Microsoft.Extensions.Configuration;
 using MySql.Data.MySqlClient;
 
-namespace MysqlBackup.Models
+namespace MySqlBackupAgent.Models
 {
     public class DbBackupTarget
     {
@@ -110,7 +110,9 @@ namespace MysqlBackup.Models
 
         private void BackupOnExportProgressChanged(object sender, ExportProgressArgs e)
         {
-            _progressSubject.OnNext(e.CurrentRowIndexInAllTables / e.TotalRowsInAllTables * 100.0);
+            var current = (double) e.CurrentRowIndexInAllTables;
+            var all = (double) e.TotalRowsInAllTables;
+            _progressSubject.OnNext(100.0 * current / all);
         }
     }
 }

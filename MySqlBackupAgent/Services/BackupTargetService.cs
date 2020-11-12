@@ -4,9 +4,9 @@ using System.IO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MysqlBackup.Models;
+using MySqlBackupAgent.Models;
 
-namespace MysqlBackup.Services
+namespace MySqlBackupAgent.Services
 {
     public class BackupTargetService
     {

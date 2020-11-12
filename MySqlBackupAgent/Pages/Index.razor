@@ -1,8 +1,8 @@
 ﻿@page "/"
-@using MysqlBackup.Services
+@using MySqlBackupAgent.Services
 @using System.Reactive.Linq
 @using System.Threading
-@using MysqlBackup.Models
+@using MySqlBackupAgent.Models
 @using System.ComponentModel
 @inject BackupTargetService BackupTargets
 
@@ -45,7 +45,7 @@ This is a static service, all configuration is performed through the 'appsetting
             _targets[pair.Key].IsRunning = pair.Value.IsRunning;
             _targets[pair.Key].NextTime = pair.Value.NextTime;
 
-            pair.Value.Progress.SubscribeOn(SynchronizationContext.Current)
+            pair.Value.Progress.ObserveOn(SynchronizationContext.Current)
                 .Subscribe(d =>
                 {
                     _targets[pair.Key].Progress = d;
