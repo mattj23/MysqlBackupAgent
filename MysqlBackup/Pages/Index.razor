@@ -2,18 +2,28 @@
 @using MysqlBackup.Services
 @using System.Reactive.Linq
 @using System.Threading
+@using MysqlBackup.Models
+@using System.ComponentModel
 @inject BackupTargetService BackupTargets
 
 <h3>MySQL Backup Utility</h3>
 This is a static service, all configuration is performed through the 'appsettings.json' file.
 
-@foreach (var pair in BackupTargets.Targets)
+@foreach (var target in _targets.Values)
 {
     <BSCard Color="Color.Dark">
         <BSCard CardType="CardType.Body">
-            <BSCard CardType="CardType.Title">@pair.Value.Name</BSCard>
+            <BSCard CardType="CardType.Title">@target.Name</BSCard>
             <BSCard CardType="CardType.Text">
-                Backup runs in @pair.Value.RunsInText
+                @if (target.IsRunning)
+                {
+                    <div>Backing Up Database</div><br />
+                    <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
+                }
+                else
+                {
+                    <span>Backup runs in @target.RunsInText</span>
+                }
             </BSCard>
         </BSCard>
     </BSCard>
@@ -22,14 +32,46 @@ This is a static service, all configuration is performed through the 'appsetting
 
 
 @code {
+    private Dictionary<string, TargetRepr> _targets;
 
     protected override void OnInitialized()
     {
+        _targets = new Dictionary<string, TargetRepr>();
+        
+        // Load the target representation objects
+        foreach (var pair in BackupTargets.Targets)
+        {
+            _targets[pair.Key] = pair.Value.ToRepr();
+            _targets[pair.Key].IsRunning = pair.Value.IsRunning;
+            _targets[pair.Key].NextTime = pair.Value.NextTime;
+
+            pair.Value.Progress.SubscribeOn(SynchronizationContext.Current)
+                .Subscribe(d =>
+                {
+                    _targets[pair.Key].Progress = d;
+                    StateHasChanged();
+                });
+        }
+        
+        // Update targets
         Observable.Interval(TimeSpan.FromSeconds(5))
+            .ObserveOn(SynchronizationContext.Current)
+            .Subscribe(async l => await Update());
+        
+        // Update display
+        Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(SynchronizationContext.Current)
             .Subscribe(l => StateHasChanged());
     }
 
+    private async Task Update()
+    {
+        foreach (var pair in BackupTargets.Targets)
+        {
+            _targets[pair.Key].IsRunning = pair.Value.IsRunning;
+            _targets[pair.Key].NextTime = pair.Value.NextTime;
+        }
+    }
 
 
 }
