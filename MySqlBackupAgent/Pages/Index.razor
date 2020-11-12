@@ -15,14 +15,18 @@ This is a static service, all configuration is performed through the 'appsetting
         <BSCard CardType="CardType.Body">
             <BSCard CardType="CardType.Title">@target.Name</BSCard>
             <BSCard CardType="CardType.Text">
-                @if (target.IsRunning)
+                @if (target.State == TargetState.BackingUp)
                 {
                     <div>Backing Up Database</div><br />
                     <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
                 }
-                else
+                else if (target.State == TargetState.Scheduled)
                 {
                     <span>Backup runs in @target.RunsInText</span>
+                }
+                else if (target.State == TargetState.Compressing)
+                {
+                    <span>Compressing Backup...</span>
                 }
             </BSCard>
         </BSCard>
@@ -36,42 +40,54 @@ This is a static service, all configuration is performed through the 'appsetting
 
     protected override void OnInitialized()
     {
+        // Extract and check the current synchronization context
+        var context = SynchronizationContext.Current;
+        if (context == null)
+        {
+            throw new NullReferenceException("There appears to be no current SynchronizationContext");
+        }
+        
+        // Initialize the target collection
         _targets = new Dictionary<string, TargetRepr>();
         
         // Load the target representation objects
         foreach (var pair in BackupTargets.Targets)
         {
             _targets[pair.Key] = pair.Value.ToRepr();
-            _targets[pair.Key].IsRunning = pair.Value.IsRunning;
+            _targets[pair.Key].State = pair.Value.State;
             _targets[pair.Key].NextTime = pair.Value.NextTime;
 
-            pair.Value.Progress.ObserveOn(SynchronizationContext.Current)
+            // Update for progress bar
+            pair.Value.Progress.ObserveOn(context)
                 .Subscribe(d =>
                 {
                     _targets[pair.Key].Progress = d;
                     StateHasChanged();
                 });
+
+            // Update for overall state
+            pair.Value.StateChange.ObserveOn(context)
+                .Subscribe(s =>
+                {
+                    _targets[pair.Key].State = s;
+                    StateHasChanged();
+                });
+            
+            // Update for next scheduled time 
+            pair.Value.ScheduledChange.ObserveOn(context)
+                .Subscribe(t =>
+                {
+                    _targets[pair.Key].NextTime = t;
+                    StateHasChanged();
+                });
         }
         
-        // Update targets
-        Observable.Interval(TimeSpan.FromSeconds(5))
-            .ObserveOn(SynchronizationContext.Current)
-            .Subscribe(async l => await Update());
-        
-        // Update display
+        // Update display every second for timer
         Observable.Interval(TimeSpan.FromSeconds(1))
-            .ObserveOn(SynchronizationContext.Current)
+            .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
     }
 
-    private async Task Update()
-    {
-        foreach (var pair in BackupTargets.Targets)
-        {
-            _targets[pair.Key].IsRunning = pair.Value.IsRunning;
-            _targets[pair.Key].NextTime = pair.Value.NextTime;
-        }
-    }
 
 
 }

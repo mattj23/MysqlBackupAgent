@@ -20,7 +20,7 @@ namespace MySqlBackupAgent.Models
         
         public bool CheckForUpdate { get; }
         
-        public bool IsRunning { get; set; }
+        public TargetState State { get; set; }
         
         public DateTime? NextTime { get; set; }
         
