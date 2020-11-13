@@ -36,7 +36,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/mysql-backup-agent:${{ steps.get_version.VERSION }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/mysql-backup-agent:${GITHUB_REF#refs/tags/}
       
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
