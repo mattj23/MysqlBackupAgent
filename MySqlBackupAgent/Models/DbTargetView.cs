@@ -5,9 +5,9 @@ namespace MySqlBackupAgent.Models
     /// <summary>
     /// A simplified representation of a backup target, used as a display model
     /// </summary>
-    public class TargetRepr
+    public class DbTargetView
     {
-        public TargetRepr(string name, bool checkForUpdate)
+        public DbTargetView(string name, bool checkForUpdate)
         {
             Name = name;
             CheckForUpdate = checkForUpdate;
@@ -23,6 +23,8 @@ namespace MySqlBackupAgent.Models
         public TargetState State { get; set; }
         
         public DateTime? NextTime { get; set; }
+        
+        public string InfoMessage { get; set; }
         
         public TimeSpan? RunsIn => NextTime - DateTime.UtcNow;
 
@@ -45,9 +47,9 @@ namespace MySqlBackupAgent.Models
 
     public static class Extensions
     {
-        public static TargetRepr ToRepr(this DbBackupTarget target)
+        public static DbTargetView ToRepr(this DbBackupTarget target)
         {
-            return new TargetRepr(target.Name, target.CheckForUpdate);
+            return new DbTargetView(target.Name, target.CheckForUpdate);
         }
     }
 }

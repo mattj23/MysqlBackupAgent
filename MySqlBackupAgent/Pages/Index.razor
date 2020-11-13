@@ -15,20 +15,31 @@ This is a static service, all configuration is performed through the 'appsetting
         <BSCard CardType="CardType.Body">
             <BSCard CardType="CardType.Title">@target.Name</BSCard>
             <BSCard CardType="CardType.Text">
+                <!-- Information message for this target -->
+                @if (!string.IsNullOrEmpty(target.InfoMessage))
+                {
+                    <div>@target.InfoMessage</div>
+                }
+
+
+                <!-- Detailed info for current state -->
                 @if (target.State == TargetState.BackingUp)
                 {
-                    <div>Backing Up Database</div><br />
-                    <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
+                    <div>Backing Up Database</div><br/>
+                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
                 }
+                
                 else if (target.State == TargetState.Scheduled)
                 {
                     <span>Backup runs in @target.RunsInText</span>
                 }
+                
                 else if (target.State == TargetState.Compressing)
                 {
-                    <div>Compressing Backup File</div><br />
-                    <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
+                    <div>Compressing Backup File</div><br/>
+                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
                 }
+                
                 else if (target.State == TargetState.UploadingToStorage)
                 {
                     <div>Uploading to storage...</div>
@@ -41,7 +52,7 @@ This is a static service, all configuration is performed through the 'appsetting
 
 
 @code {
-    private Dictionary<string, TargetRepr> _targets;
+    private Dictionary<string, DbTargetView> _targets;
 
     protected override void OnInitialized()
     {
@@ -53,7 +64,7 @@ This is a static service, all configuration is performed through the 'appsetting
         }
         
         // Initialize the target collection
-        _targets = new Dictionary<string, TargetRepr>();
+        _targets = new Dictionary<string, DbTargetView>();
         
         // Load the target representation objects
         foreach (var pair in BackupTargets.Targets)
@@ -86,6 +97,13 @@ This is a static service, all configuration is performed through the 'appsetting
                     _targets[pair.Key].NextTime = t;
                     StateHasChanged();
                 });
+
+            pair.Value.InfoMessages.ObserveOn(context)
+                .Subscribe(s =>
+                {
+                    _targets[pair.Key].InfoMessage = s;
+                    StateHasChanged();
+                });
         }
         
         // Update display every second for timer
@@ -93,7 +111,5 @@ This is a static service, all configuration is performed through the 'appsetting
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
     }
-
-
 
 }

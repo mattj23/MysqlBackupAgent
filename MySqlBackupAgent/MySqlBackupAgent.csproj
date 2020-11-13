@@ -41,6 +41,39 @@
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-12-06-22.sql" />
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-12-06-22.sql.bz2" />
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-12-06-25.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-12-06-54.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-12-06-54.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-00-08.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-00-08.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-00-18.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-00-18.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-16.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-16.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-20.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-20.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-24.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-24.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-27.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-27.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-29.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-34.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-34.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-37.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-37.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-38.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-38.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-41.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-41.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-42.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-42.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-45.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-45.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-48.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-48.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-50.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-50.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-53.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-53.sql.gz" />
     </ItemGroup>
 
 </Project>

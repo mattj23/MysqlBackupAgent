@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reactive;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Minio;
 using Minio.DataModel;
@@ -13,8 +17,14 @@ namespace MySqlBackupAgent.Services
         public MinioFileService(MinioSettings settings)
         {
             _settings = settings;
+            _settings.Prefix.Trim('/');
         }
 
+        /// <summary>
+        /// Upload the a file to the S3 endpoint, bucket, and with the given prefix
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public async Task UploadFile(string filePath)
         {
             var client = GetClient();
@@ -25,13 +35,28 @@ namespace MySqlBackupAgent.Services
             string fileName = Path.GetFileName(filePath);
             if (!string.IsNullOrEmpty(_settings.Prefix))
             {
-                var p = _settings.Prefix.Trim('/');
-                fileName = $"{p}/{fileName}";
+                fileName = $"{_settings.Prefix}/{fileName}";
             }
 
             await client.PutObjectAsync(_settings.Bucket, fileName, filePath);
         }
 
+        /// <summary>
+        /// Retrieve all existing files from the backup storage location
+        /// </summary>
+        /// <returns></returns>
+        public async Task<string[]> GetExistingFiles()
+        {
+            var client = GetClient();
+            var observable = client.ListObjectsAsync(_settings.Bucket, _settings.Prefix, true);
+            var items = await observable.ToList();
+            return items.Select(i => i.Key.Replace(_settings.Prefix, string.Empty).Trim('/')).ToArray();
+        }
+
+        /// <summary>
+        /// Helper method to build the client from the settings
+        /// </summary>
+        /// <returns></returns>
         private MinioClient GetClient()
         {
             var client = new MinioClient(_settings.Endpoint, _settings.AccessKey, _settings.SecretKey);
