@@ -30,6 +30,10 @@ namespace MySqlBackupAgent
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddBootstrapCss();
+            
+            // Storage Service
+            services.AddTransient<IStorageService>(x => StorageServiceFactory.Build(Configuration.GetSection("Storage")));
+            
 
             services.AddBackupTargets(Configuration.GetSection("BackupTargets"));
         }

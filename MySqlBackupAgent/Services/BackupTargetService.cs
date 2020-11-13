@@ -24,7 +24,7 @@ namespace MySqlBackupAgent.Services
             
             foreach (var child in section.GetChildren())
             {
-                var target = new DbBackupTarget(child, workingPath);
+                var target = new DbBackupTarget(child, workingPath, scopeFactory);
                 _targets[target.Name] = target;
                 _targets[target.Name].ScheduleNext();
             }

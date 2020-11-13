@@ -7,7 +7,9 @@ using Cronos;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.GZip;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using MySql.Data.MySqlClient;
+using MySqlBackupAgent.Services;
 
 namespace MySqlBackupAgent.Models
 {
@@ -36,11 +38,14 @@ namespace MySqlBackupAgent.Models
         /// The subscription for the scheduled backup job
         /// </summary>
         private IDisposable _subscription;
+
+        private readonly IServiceScopeFactory _scopeFactory;
         
 
-        public DbBackupTarget(IConfiguration configuration, string scratchPath)
+        public DbBackupTarget(IConfiguration configuration, string scratchPath, IServiceScopeFactory scopeFactory)
         {
             _scratchPath = scratchPath;
+            _scopeFactory = scopeFactory;
             _connectionString = configuration["ConnectionString"];
             _progressSubject = new BehaviorSubject<double>(0);
             _nextTimeSubject = new BehaviorSubject<DateTime>(default);
@@ -125,13 +130,6 @@ namespace MySqlBackupAgent.Models
 
         private async Task PerformBackup()
         {
-            State = TargetState.BackingUp;
-            _progressSubject.OnNext(0);
-            
-            // Build the full connection string
-            var connectionString = _connectionString + (_connectionString.EndsWith(";") ? string.Empty : ";") + 
-                                   "charset=utf8;convertzerodatetime=true;";
-            
             // Prepare the scratch directory and temporary file
             if (!Directory.Exists(_scratchPath))
             {
@@ -142,9 +140,35 @@ namespace MySqlBackupAgent.Models
             var fileName = $"{SafeName}_{timeText}.sql";
             var filePath = Path.Combine(_scratchPath, fileName);
 
+            // Dump to the file
+            await DumpFromMySql(filePath);
+            
+            // Compress file
+            var compressedPath = await CompressFile(filePath);
+            
+            // Upload
+            State = TargetState.UploadingToStorage;
+            using var scope = _scopeFactory.CreateScope();
+            var storage = scope.ServiceProvider.GetService<IStorageService>();
+            await storage.UploadFile(compressedPath);
+            
+
+            State = TargetState.Scheduled;
+            _progressSubject.OnNext(100);
+        }
+
+        private async Task DumpFromMySql(string filePath)
+        {
+            State = TargetState.BackingUp;
+            _progressSubject.OnNext(0);
+            
             // Dump to file from MySQL
-            using var connection = new MySqlConnection(connectionString);
-            using var cmd = new MySqlCommand();
+            // Build the full connection string
+            var connectionString = _connectionString + (_connectionString.EndsWith(";") ? string.Empty : ";") + 
+                                   "charset=utf8;convertzerodatetime=true;";
+
+            await using var connection = new MySqlConnection(connectionString);
+            await using var cmd = new MySqlCommand();
             using var backup = new MySqlBackup(cmd);
 
             backup.ExportProgressChanged += BackupOnExportProgressChanged;
@@ -153,15 +177,17 @@ namespace MySqlBackupAgent.Models
             backup.ExportToFile(filePath);
             backup.ExportProgressChanged -= BackupOnExportProgressChanged;
             await connection.CloseAsync();
-            
-            // Compress file
+        }
+
+        private async Task<string> CompressFile(string filePath)
+        {
             State = TargetState.Compressing;
             var compressedPath = filePath + ".gz";
             using var outputFileStream = File.OpenWrite(compressedPath);
             using var inputFileStream = File.OpenRead(filePath);
             using var writeStream = new GZipOutputStream(outputFileStream);
             
-            var buffer = new byte[1024 * 1000];
+            var buffer = new byte[1024 * 10000];
             int bytesRead;
             int totalRead = 0;
             while ((bytesRead = await inputFileStream.ReadAsync(buffer)) > 0)
@@ -171,12 +197,10 @@ namespace MySqlBackupAgent.Models
                 
                 _progressSubject.OnNext(100.0 * (double) totalRead / (double) inputFileStream.Length);
             }
-            
 
-            State = TargetState.Scheduled;
-            _progressSubject.OnNext(100);
+            return compressedPath;
         }
-
+        
         private void BackupOnExportProgressChanged(object sender, ExportProgressArgs e)
         {
             var current = (double) e.CurrentRowIndexInAllTables;

@@ -29,6 +29,10 @@ This is a static service, all configuration is performed through the 'appsetting
                     <div>Compressing Backup File</div><br />
                     <BSProgress Value="@((int)target.Progress)" IsStriped="true" IsAnimated="true" />
                 }
+                else if (target.State == TargetState.UploadingToStorage)
+                {
+                    <div>Uploading to storage...</div>
+                }
             </BSCard>
         </BSCard>
     </BSCard>
