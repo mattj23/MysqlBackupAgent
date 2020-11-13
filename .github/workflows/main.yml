@@ -19,13 +19,10 @@ jobs:
     steps:
       - name: Get the version
         id: get_version
-        run: |
-          echo "::set-output name=VERSION::${GITHUB_REF#refs/tags/}"
-          echo ${GITHUB_REF}
+        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
 
       - name: Check the version
-        run: |
-          echo "${{ steps.get_version.VERSION }}"
+        run: echo ${{ steps.get_version.version }}
 
       - name: Login to DockerHub
         uses: docker/login-action@v1
