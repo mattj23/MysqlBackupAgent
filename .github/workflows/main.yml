@@ -22,7 +22,7 @@ jobs:
         run: echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
 
       - name: Check the version
-        run: echo ${{ steps.get_version.version }}
+        run: echo ${{ steps.get_version.outputs.version }}
 
       - name: Login to DockerHub
         uses: docker/login-action@v1
@@ -37,7 +37,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/mysql-backup-agent:${{ steps.get_version.VERSION }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/mysql-backup-agent:${{ steps.get_version.outputs.version }}
       
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
