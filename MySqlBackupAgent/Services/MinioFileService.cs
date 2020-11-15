@@ -42,15 +42,23 @@ namespace MySqlBackupAgent.Services
         }
 
         /// <summary>
-        /// Retrieve all existing files from the backup storage location
+        /// Retrieve all existing files from the backup storage location. If the bucket is not found the returned
+        /// array will be empty.
         /// </summary>
         /// <returns></returns>
         public async Task<string[]> GetExistingFiles()
         {
-            var client = GetClient();
-            var observable = client.ListObjectsAsync(_settings.Bucket, _settings.Prefix, true);
-            var items = await observable.ToList();
-            return items.Select(i => i.Key.Replace(_settings.Prefix, string.Empty).Trim('/')).ToArray();
+            try
+            {
+                var client = GetClient();
+                var observable = client.ListObjectsAsync(_settings.Bucket, _settings.Prefix, true);
+                var items = await observable.ToList();
+                return items.Select(i => i.Key.Replace(_settings.Prefix, string.Empty).Trim('/')).ToArray();
+            }
+            catch (Minio.Exceptions.BucketNotFoundException e)
+            {
+                return Array.Empty<string>();
+            }
         }
 
         /// <summary>
