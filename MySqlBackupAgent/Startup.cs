@@ -27,6 +27,8 @@ namespace MySqlBackupAgent
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddBackupTargets(Configuration.GetSection("BackupTargets"));
+            
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddBootstrapCss();
@@ -35,7 +37,6 @@ namespace MySqlBackupAgent
             services.AddTransient<IStorageService>(x => StorageServiceFactory.Build(Configuration.GetSection("Storage")));
             
 
-            services.AddBackupTargets(Configuration.GetSection("BackupTargets"));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
