@@ -34,7 +34,7 @@ namespace MySqlBackupAgent
             services.AddBootstrapCss();
             
             // Storage Service
-            services.AddTransient<IStorageService>(x => StorageServiceFactory.Build(Configuration.GetSection("Storage")));
+            services.AddTransient(x => StorageServiceFactory.Build(Configuration.GetSection("Storage")));
             
 
         }

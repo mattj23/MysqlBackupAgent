@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MySqlBackupAgent.Models
 {
@@ -25,6 +26,8 @@ namespace MySqlBackupAgent.Models
         public DateTime? NextTime { get; set; }
         
         public string InfoMessage { get; set; }
+        
+        public List<DbBackup> Backups { get; set; }
         
         public TimeSpan? RunsIn => NextTime - DateTime.UtcNow;
 

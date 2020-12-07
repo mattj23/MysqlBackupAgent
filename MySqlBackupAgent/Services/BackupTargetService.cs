@@ -25,13 +25,11 @@ namespace MySqlBackupAgent.Services
             _logger = logger;
             _section = section;
             _targets = new ConcurrentDictionary<string, DbBackupTarget>();
-            
-
         }
 
         public IReadOnlyDictionary<string, DbBackupTarget> Targets => _targets;
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             using var scope = _scopeFactory.CreateScope();
             var environment = scope.ServiceProvider.GetService<IWebHostEnvironment>();
@@ -44,9 +42,9 @@ namespace MySqlBackupAgent.Services
                 _logger.Log(LogLevel.Information, "Created target {0}", target.Name);
                 _targets[target.Name] = target;
                 _targets[target.Name].ScheduleNext();
+                await target.GetExistingBackups();
             }
 
-            return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

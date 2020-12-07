@@ -61,6 +61,8 @@ namespace MySqlBackupAgent.Models
             _infoMessageSubject = new BehaviorSubject<string>(string.Empty);
             _stateSubject = new Subject<TargetState>();
             
+            Backups = new List<DbBackup>();
+            
             Name = configuration["Name"];
             
             var invalids = Path.GetInvalidFileNameChars();
@@ -107,6 +109,8 @@ namespace MySqlBackupAgent.Models
 
         public IObservable<string> InfoMessages => _infoMessageSubject.AsObservable();
         
+        public List<DbBackup> Backups { get; }
+        
         /// <summary>
         /// Schedule the next job and save the subscription. If an existing subscription already exists we will dispose
         /// of it before creating the new one.
@@ -127,6 +131,38 @@ namespace MySqlBackupAgent.Models
             if (NextTime != null) _nextTimeSubject.OnNext(NextTime.Value);
         }
 
+        /// <summary>
+        /// Retrieves the list of backups already on the server and populates the Backups property
+        /// </summary>
+        public async Task GetExistingBackups()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var storage = scope.ServiceProvider.GetService<IStorageService>();
+            var existing = await storage.GetExistingFiles();
+
+            var startChar = SafeName.Length + 1;
+            foreach (var file in existing.Where(f => f.StartsWith(SafeName)))
+            {
+                try
+                {
+                    var parseText = file.Substring(startChar).Split('.')[0];
+                    var timeStamp = DateTime.ParseExact(parseText, _dateTimeFormat, CultureInfo.InvariantCulture);
+                    var backup = new DbBackup(file, timeStamp);
+                    if (!Backups.Contains(backup))
+                    {
+                        Backups.Add(backup);
+                    }
+                    
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+            }
+            
+            Backups.Sort((a, b) => a.TimeStamp.CompareTo(b.TimeStamp));
+        }
+        
         /// <summary>
         /// Kicks off the backup task and reschedules the next observable. Is effectively an event handler, no caller
         /// ever needs to be waiting on this.
@@ -241,7 +277,7 @@ namespace MySqlBackupAgent.Models
             State = TargetState.Scheduled;
             _progressSubject.OnNext(100);
         }
-        
+
         /// <summary>
         /// Figure out if the database has been updated since the last backup was taken.
         /// </summary>

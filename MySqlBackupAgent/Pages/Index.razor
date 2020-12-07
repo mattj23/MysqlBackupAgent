@@ -44,6 +44,12 @@ This is a static service, all configuration is performed through the 'appsetting
                 {
                     <div>Uploading to storage...</div>
                 }
+                
+                <!-- Existing Backups -->
+                @foreach (var backup in target.Backups)
+                {
+                    <div>@backup.FileName</div>
+                }
             </BSCard>
         </BSCard>
     </BSCard>
@@ -69,9 +75,12 @@ This is a static service, all configuration is performed through the 'appsetting
         // Load the target representation objects
         foreach (var pair in BackupTargets.Targets)
         {
-            _targets[pair.Key] = pair.Value.ToRepr();
-            _targets[pair.Key].State = pair.Value.State;
-            _targets[pair.Key].NextTime = pair.Value.NextTime;
+            var target = pair.Value.ToRepr();
+            target.State = pair.Value.State;
+            target.NextTime = pair.Value.NextTime;
+            target.Backups = pair.Value.Backups.ToList();
+            
+            _targets[pair.Key] = target;
 
             // Update for progress bar
             pair.Value.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
