@@ -3,58 +3,50 @@
 @using System.Reactive.Linq
 @using System.Threading
 @using MySqlBackupAgent.Models
-@using System.ComponentModel
 @inject BackupTargetService BackupTargets
 
 <h3>MySQL Backup Utility</h3>
 This is a static service, all configuration is performed through the 'appsettings.json' file.
 
-@foreach (var target in _targets.Values)
-{
-    <BSCard Color="Color.Dark">
-        <BSCard CardType="CardType.Body">
-            <BSCard CardType="CardType.Title">@target.Name</BSCard>
-            <BSCard CardType="CardType.Text">
-                <!-- Information message for this target -->
-                @if (!string.IsNullOrEmpty(target.InfoMessage))
-                {
-                    <div>@target.InfoMessage</div>
-                }
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col" class="text-nowrap">Database</th>
+        <th scope="col" class="text-nowrap">Status</th>
+        <th scope="col" class="w-100">Progress/Message</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+    @foreach (var target in _targets.Values)
+    {
+        <tr>
+            <td class="text-nowrap">@target.Name</td>
+            
+            <!-- Status Column -->
+            <td class="text-nowrap">@target.StatusText</td>
+            
+            <!-- Progress/Message Column -->
+            @if (target.State == TargetState.BackingUp || target.State == TargetState.Compressing)
+            {
+                <td>
+                <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
+                </td>
+            }
+            else if (!string.IsNullOrEmpty(target.InfoMessage))
+            {
+                <td>@target.InfoMessage</td>
+            }
+            else
+            {
+                <td></td>
+            }
+        </tr>
+        
+    }
+    </tbody>
+</table>
 
-
-                <!-- Detailed info for current state -->
-                @if (target.State == TargetState.BackingUp)
-                {
-                    <div>Backing Up Database</div><br/>
-                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
-                }
-                
-                else if (target.State == TargetState.Scheduled)
-                {
-                    <span>Backup runs in @target.RunsInText</span>
-                }
-                
-                else if (target.State == TargetState.Compressing)
-                {
-                    <div>Compressing Backup File</div><br/>
-                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
-                }
-                
-                else if (target.State == TargetState.UploadingToStorage)
-                {
-                    <div>Uploading to storage...</div>
-                }
-                
-                <!-- Existing Backups -->
-                @foreach (var backup in target.Backups)
-                {
-                    <div>@backup.FileName</div>
-                }
-            </BSCard>
-        </BSCard>
-    </BSCard>
-    <br />
-}
 
 
 @code {

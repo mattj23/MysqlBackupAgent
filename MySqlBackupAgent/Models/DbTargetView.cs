@@ -46,6 +46,16 @@ namespace MySqlBackupAgent.Models
                 return $"{days}{r.Value.Hours} hours, {r.Value.Minutes} minutes, {r.Value.Seconds} seconds";
             }
         }
+
+        public string StatusText => State switch
+                {
+                    TargetState.BackingUp => "Backing Up",
+                    TargetState.Compressing => "Compressing",
+                    TargetState.UploadingToStorage => "Uploading to storage",
+                    TargetState.Scheduled =>
+                        RunsIn.HasValue ? $"Runs in {RunsIn:hh\\:mm\\:ss}" : "No scheduled time",
+                    _ => "Unknown state"
+                };
     }
 
     public static class Extensions
