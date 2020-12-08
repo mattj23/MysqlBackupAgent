@@ -1,0 +1,120 @@
+@page "/backup/{SafeName}"
+@using MySqlBackupAgent.Services
+@using MySqlBackupAgent.Models
+@using System.Threading
+@using System.Reactive.Linq
+
+@inject BackupTargetService BackupTargets
+
+<table class="table table-borderless">
+    <thead class="thead-dark">
+    <tr>
+        <th colspan="2">@_target.Name</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td class="text-nowrap">Cron Schedule</td>
+        <td class="w-100">
+            <div>@_target.CronText</div>
+            <BSButton Color="Color.Primary" OnClick="ForceBackup">Backup Now</BSButton>
+        </td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Status</td>
+        <td>@_target.StatusText</td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Progress</td>
+        <td>
+            @if (_target.State == TargetState.BackingUp || _target.State == TargetState.Compressing)
+            {
+                <BSProgress Value="@((int) _target.Progress)" IsStriped="true" IsAnimated="true"/>
+            }
+            else
+            {
+                <span>N/A</span>
+            }
+        </td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Info Message</td>
+        <td>
+            @if (!string.IsNullOrEmpty(_target.InfoMessage))
+            {
+                <span>@_target.InfoMessage</span>
+            }
+            else
+            {
+                <span>N/A</span>
+            }
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+
+@code {
+    [Parameter]
+    public string SafeName { get; set; }
+
+    private DbTargetView _target;
+
+    protected override void OnInitialized()
+    {
+        var context = SynchronizationContext.Current;
+        if (context == null)
+        {
+            throw new NullReferenceException("There appears to be no current SynchronizationContext");
+        }
+        
+        var target = BackupTargets.Targets.Values.FirstOrDefault(t => t.SafeName == SafeName);
+        if (target == null)
+        {
+            throw new ArgumentException("Could not find backup target with that name");
+        }
+        
+        _target = target.ToRepr();
+        
+        target.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
+            .ObserveOn(context)
+            .Subscribe(d =>
+            {
+                _target.Progress = d;
+                StateHasChanged();
+            });
+
+        // Update for overall state
+        target.StateChange.ObserveOn(context)
+            .Subscribe(s =>
+            {
+                _target.State = s;
+                StateHasChanged();
+            });
+        
+        // Update for next scheduled time 
+        target.ScheduledChange.ObserveOn(context)
+            .Subscribe(t =>
+            {
+                _target.NextTime = t;
+                StateHasChanged();
+            });
+
+        target.InfoMessages.ObserveOn(context)
+            .Subscribe(s =>
+            {
+                _target.InfoMessage = s;
+                StateHasChanged();
+            });
+        
+        Observable.Interval(TimeSpan.FromSeconds(1))
+            .ObserveOn(context)
+            .Subscribe(l => StateHasChanged());
+    }
+
+    protected async Task ForceBackup()
+    {
+        
+    }
+
+}

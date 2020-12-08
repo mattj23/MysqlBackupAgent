@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MySqlBackupAgent.Models
 {
@@ -8,9 +9,10 @@ namespace MySqlBackupAgent.Models
     /// </summary>
     public class DbTargetView
     {
-        public DbTargetView(string name, bool checkForUpdate)
+        public DbTargetView(string name, string safeName, bool checkForUpdate)
         {
             Name = name;
+            SafeName = safeName;
             CheckForUpdate = checkForUpdate;
             Progress = 0;
         }
@@ -18,6 +20,10 @@ namespace MySqlBackupAgent.Models
         public double Progress { get; set; }
 
         public string Name { get; }
+        
+        public string CronText { get; set; }
+        
+        public string SafeName { get; }
         
         public bool CheckForUpdate { get; }
         
@@ -62,7 +68,12 @@ namespace MySqlBackupAgent.Models
     {
         public static DbTargetView ToRepr(this DbBackupTarget target)
         {
-            return new DbTargetView(target.Name, target.CheckForUpdate);
+            var temp = new DbTargetView(target.Name, target.SafeName, target.CheckForUpdate);
+            temp.State = target.State;
+            temp.NextTime = target.NextTime;
+            temp.Backups = target.Backups.ToList();
+            temp.CronText = target.CronText;
+            return temp;
         }
     }
 }

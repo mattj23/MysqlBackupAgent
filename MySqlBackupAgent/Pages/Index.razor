@@ -9,7 +9,7 @@
 This is a static service, all configuration is performed through the 'appsettings.json' file.
 
 <table class="table">
-    <thead>
+    <thead class="thead-dark">
     <tr>
         <th scope="col" class="text-nowrap">Database</th>
         <th scope="col" class="text-nowrap">Status</th>
@@ -21,7 +21,9 @@ This is a static service, all configuration is performed through the 'appsetting
     @foreach (var target in _targets.Values)
     {
         <tr>
-            <td class="text-nowrap">@target.Name</td>
+            <td class="text-nowrap">
+                <a href="backup/@target.SafeName">@target.Name</a>
+            </td>
             
             <!-- Status Column -->
             <td class="text-nowrap">@target.StatusText</td>
@@ -68,10 +70,6 @@ This is a static service, all configuration is performed through the 'appsetting
         foreach (var pair in BackupTargets.Targets)
         {
             var target = pair.Value.ToRepr();
-            target.State = pair.Value.State;
-            target.NextTime = pair.Value.NextTime;
-            target.Backups = pair.Value.Backups.ToList();
-            
             _targets[pair.Key] = target;
 
             // Update for progress bar

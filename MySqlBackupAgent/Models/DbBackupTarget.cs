@@ -70,7 +70,8 @@ namespace MySqlBackupAgent.Models
                 .TrimEnd('.').Trim().Replace(" ", "_"); 
             
             CheckForUpdate = configuration.GetValue<bool>("CheckForUpdate");
-            Expression = CronExpression.Parse(configuration["Cron"]);
+            CronText = configuration["Cron"];
+            Expression = CronExpression.Parse(CronText);
         }
         
         /// <summary>
@@ -91,6 +92,8 @@ namespace MySqlBackupAgent.Models
                 _stateSubject.OnNext(_state);
             }
         }
+        
+        public string CronText { get; }
         
         public string SafeName { get; }
 
