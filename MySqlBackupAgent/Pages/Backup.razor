@@ -6,30 +6,35 @@
 
 @inject BackupTargetService BackupTargets
 
+<Confirmation @ref=_confirm />
+
 <table class="table table-borderless">
     <thead class="thead-dark">
     <tr>
-        <th colspan="2">@_target.Name</th>
+        <th colspan="2">@_view.Name</th>
     </tr>
     </thead>
     <tbody>
     <tr>
         <td class="text-nowrap">Cron Schedule</td>
         <td class="w-100">
-            <div>@_target.CronText</div>
-            <BSButton Color="Color.Primary" OnClick="ForceBackup">Backup Now</BSButton>
+            <div>@_view.CronText</div>
+            @if (_view.State == TargetState.Scheduled)
+            {
+                <BSButton Color="Color.Primary" OnClick="@ForceBackup">Backup Now</BSButton>
+            }
         </td>
     </tr>
     <tr>
         <td class="text-nowrap">Status</td>
-        <td>@_target.StatusText</td>
+        <td>@_view.StatusText</td>
     </tr>
     <tr>
         <td class="text-nowrap">Progress</td>
         <td>
-            @if (_target.State == TargetState.BackingUp || _target.State == TargetState.Compressing)
+            @if (_view.State == TargetState.BackingUp || _view.State == TargetState.Compressing)
             {
-                <BSProgress Value="@((int) _target.Progress)" IsStriped="true" IsAnimated="true"/>
+                <BSProgress Value="@((int) _view.Progress)" IsStriped="true" IsAnimated="true"/>
             }
             else
             {
@@ -40,9 +45,9 @@
     <tr>
         <td class="text-nowrap">Info Message</td>
         <td>
-            @if (!string.IsNullOrEmpty(_target.InfoMessage))
+            @if (!string.IsNullOrEmpty(_view.InfoMessage))
             {
-                <span>@_target.InfoMessage</span>
+                <span>@_view.InfoMessage</span>
             }
             else
             {
@@ -58,7 +63,9 @@
     [Parameter]
     public string SafeName { get; set; }
 
-    private DbTargetView _target;
+    private DbTargetView _view;
+    private DbBackupTarget _target;
+    private Confirmation _confirm;
 
     protected override void OnInitialized()
     {
@@ -69,18 +76,19 @@
         }
         
         var target = BackupTargets.Targets.Values.FirstOrDefault(t => t.SafeName == SafeName);
+        _target = target;
         if (target == null)
         {
             throw new ArgumentException("Could not find backup target with that name");
         }
         
-        _target = target.ToRepr();
+        _view = target.ToRepr();
         
         target.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
             .ObserveOn(context)
             .Subscribe(d =>
             {
-                _target.Progress = d;
+                _view.Progress = d;
                 StateHasChanged();
             });
 
@@ -88,7 +96,7 @@
         target.StateChange.ObserveOn(context)
             .Subscribe(s =>
             {
-                _target.State = s;
+                _view.State = s;
                 StateHasChanged();
             });
         
@@ -96,14 +104,14 @@
         target.ScheduledChange.ObserveOn(context)
             .Subscribe(t =>
             {
-                _target.NextTime = t;
+                _view.NextTime = t;
                 StateHasChanged();
             });
 
         target.InfoMessages.ObserveOn(context)
             .Subscribe(s =>
             {
-                _target.InfoMessage = s;
+                _view.InfoMessage = s;
                 StateHasChanged();
             });
         
@@ -114,7 +122,17 @@
 
     protected async Task ForceBackup()
     {
+        var result = await _confirm.GetConfirmation("Confirm Backup", "Are you sure you want to force a backup task for this target?");
+
+        if (_target.State != TargetState.Scheduled)
+        {
+            return;
+        }
         
+        if (result)
+        {
+            Task.Run(() =>_target.RunJob(true));
+        }
     }
 
 }

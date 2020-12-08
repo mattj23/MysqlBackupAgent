@@ -170,14 +170,14 @@ namespace MySqlBackupAgent.Models
         /// Kicks off the backup task and reschedules the next observable. Is effectively an event handler, no caller
         /// ever needs to be waiting on this.
         /// </summary>
-        private async void RunJob()
+        public async void RunJob(bool force=false)
         {
             _subscription?.Dispose();
             _infoMessageSubject.OnNext(string.Empty);
             
             try
             {
-                await PerformBackup().ConfigureAwait(false);
+                await PerformBackup(force).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -189,7 +189,13 @@ namespace MySqlBackupAgent.Models
             ScheduleNext();
         }
 
-        private async Task PerformBackup()
+        /// <summary>
+        /// Performs a backup
+        /// </summary>
+        /// <param name="force">If true, this will ignore the changed check</param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        private async Task PerformBackup(bool force)
         {
             // Prepare the scratch directory and temporary file
             if (!Directory.Exists(_scratchPath))
@@ -224,7 +230,7 @@ namespace MySqlBackupAgent.Models
             string compressedPath = null;
             
             // If we're checking the update time we can verify this now
-            if (CheckForUpdate)
+            if (CheckForUpdate && !force)
             {
                 // Get the files existing in storage 
                 var items = await storage.GetExistingFiles();
