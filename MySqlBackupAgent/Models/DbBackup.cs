@@ -4,14 +4,17 @@ namespace MySqlBackupAgent.Models
 {
     public class DbBackup : IEquatable<DbBackup>
     {
-        public DbBackup(string fileName, DateTime timeStamp)
+        public DbBackup(string fileName, DateTime timeStamp, ulong size)
         {
             FileName = fileName;
             TimeStamp = timeStamp;
+            Size = size;
         }
 
         public string FileName { get; }
         public DateTime TimeStamp { get; }
+        
+        public ulong Size { get; }
 
         public bool Equals(DbBackup other)
         {

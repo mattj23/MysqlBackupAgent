@@ -76,4 +76,8 @@
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-53.sql.gz" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="wwwroot\scratch_dir" />
+    </ItemGroup>
+
 </Project>

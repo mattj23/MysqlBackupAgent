@@ -9,10 +9,10 @@ namespace MySqlBackupAgent.Models
     /// </summary>
     public class DbTargetView
     {
-        public DbTargetView(string name, string safeName, bool checkForUpdate)
+        public DbTargetView(string name, string key, bool checkForUpdate)
         {
             Name = name;
-            SafeName = safeName;
+            Key = key;
             CheckForUpdate = checkForUpdate;
             Progress = 0;
         }
@@ -23,7 +23,7 @@ namespace MySqlBackupAgent.Models
         
         public string CronText { get; set; }
         
-        public string SafeName { get; }
+        public string Key { get; }
         
         public bool CheckForUpdate { get; }
         
@@ -68,7 +68,7 @@ namespace MySqlBackupAgent.Models
     {
         public static DbTargetView ToRepr(this DbBackupTarget target)
         {
-            var temp = new DbTargetView(target.Name, target.SafeName, target.CheckForUpdate);
+            var temp = new DbTargetView(target.Name, target.Key, target.CheckForUpdate);
             temp.State = target.State;
             temp.NextTime = target.NextTime;
             temp.Backups = target.Backups.ToList();

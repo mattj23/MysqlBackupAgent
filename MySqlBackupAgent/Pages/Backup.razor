@@ -1,4 +1,4 @@
-@page "/backup/{SafeName}"
+@page "/backup/{TargetKey}"
 @using MySqlBackupAgent.Services
 @using MySqlBackupAgent.Models
 @using System.Threading
@@ -18,7 +18,7 @@
     <tr>
         <td class="text-nowrap">Cron Schedule</td>
         <td class="w-100">
-            <div>@_view.CronText</div>
+            <span>@_view.CronText</span>
             @if (_view.State == TargetState.Scheduled)
             {
                 <BSButton Color="Color.Primary" OnClick="@ForceBackup">Backup Now</BSButton>
@@ -58,10 +58,28 @@
     </tbody>
 </table>
 
+<br />
+<hr />
+<br />
+
+<table class="table table-borderless">
+    <thead class="thead-dark">
+    <tr>
+        <th>Date</th>
+        <th>Time</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var backup in _target.Backups)
+    {
+        
+    }
+    </tbody>
+</table>
 
 @code {
     [Parameter]
-    public string SafeName { get; set; }
+    public string TargetKey { get; set; }
 
     private DbTargetView _view;
     private DbBackupTarget _target;
@@ -75,7 +93,7 @@
             throw new NullReferenceException("There appears to be no current SynchronizationContext");
         }
         
-        var target = BackupTargets.Targets.Values.FirstOrDefault(t => t.SafeName == SafeName);
+        var target = BackupTargets.Targets[TargetKey];
         _target = target;
         if (target == null)
         {
@@ -120,7 +138,7 @@
             .Subscribe(l => StateHasChanged());
     }
 
-    protected async Task ForceBackup()
+    private async Task ForceBackup()
     {
         var result = await _confirm.GetConfirmation("Confirm Backup", "Are you sure you want to force a backup task for this target?");
 
@@ -131,7 +149,7 @@
         
         if (result)
         {
-            Task.Run(() =>_target.RunJob(true));
+            await Task.Run(() =>_target.RunJob(true));
         }
     }
 

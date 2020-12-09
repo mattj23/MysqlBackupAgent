@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Minio;
 using Minio.DataModel;
+using MySqlBackupAgent.Models;
 
 namespace MySqlBackupAgent.Services
 {
@@ -24,15 +25,17 @@ namespace MySqlBackupAgent.Services
         /// Upload the a file to the S3 endpoint, bucket, and with the given prefix
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="storedName">An optional argument specifying the name to store the file as at the destination,
+        /// if none is provided the given filename may be used</param>
         /// <returns></returns>
-        public async Task UploadFile(string filePath)
+        public async Task UploadFile(string filePath, string storedName=null)
         {
             var client = GetClient();
 
             var hasBucket = await client.BucketExistsAsync(_settings.Bucket);
             if (!hasBucket) await client.MakeBucketAsync(_settings.Bucket);
 
-            string fileName = Path.GetFileName(filePath);
+            var fileName = string.IsNullOrWhiteSpace(storedName) ? Path.GetFileName(filePath) : storedName;
             if (!string.IsNullOrEmpty(_settings.Prefix))
             {
                 fileName = $"{_settings.Prefix}/{fileName}";
@@ -46,18 +49,19 @@ namespace MySqlBackupAgent.Services
         /// array will be empty.
         /// </summary>
         /// <returns></returns>
-        public async Task<string[]> GetExistingFiles()
+        public async Task<Tuple<string, ulong>[]> GetExistingFiles()
         {
             try
             {
                 var client = GetClient();
                 var observable = client.ListObjectsAsync(_settings.Bucket, _settings.Prefix, true);
                 var items = await observable.ToList();
-                return items.Select(i => i.Key.Replace(_settings.Prefix, string.Empty).Trim('/')).ToArray();
+                return items.Select(i => Tuple.Create(i.Key.Replace(_settings.Prefix, string.Empty).Trim('/'), i.Size))
+                    .ToArray();
             }
             catch (Minio.Exceptions.BucketNotFoundException e)
             {
-                return Array.Empty<string>();
+                return Array.Empty<Tuple<string, ulong>>();
             }
         }
 

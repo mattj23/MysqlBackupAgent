@@ -17,7 +17,6 @@ namespace MySqlBackupAgent.Models
 {
     public class DbBackupTarget
     {
-        private static string _dateTimeFormat = "yyyy-MM-dd-HH-mm";
         
         private readonly string _connectionString;
         private readonly string _scratchPath;
@@ -48,26 +47,21 @@ namespace MySqlBackupAgent.Models
         /// </summary>
         private IDisposable _subscription;
 
-        private readonly IServiceScopeFactory _scopeFactory;
-        
-
-        public DbBackupTarget(IConfiguration configuration, string scratchPath, IServiceScopeFactory scopeFactory)
+        public DbBackupTarget(string key, IConfiguration configuration, string scratchPath, BackupCollection backups)
         {
+            Key = key;
             _scratchPath = scratchPath;
-            _scopeFactory = scopeFactory;
             _connectionString = configuration["ConnectionString"];
             _progressSubject = new BehaviorSubject<double>(0);
             _nextTimeSubject = new BehaviorSubject<DateTime>(default);
             _infoMessageSubject = new BehaviorSubject<string>(string.Empty);
             _stateSubject = new Subject<TargetState>();
-            
-            Backups = new List<DbBackup>();
+
+            Backups = backups;
             
             Name = configuration["Name"];
             
             var invalids = Path.GetInvalidFileNameChars();
-            SafeName = string.Join("_", Name.Split(invalids, StringSplitOptions.RemoveEmptyEntries))
-                .TrimEnd('.').Trim().Replace(" ", "_"); 
             
             CheckForUpdate = configuration.GetValue<bool>("CheckForUpdate");
             CronText = configuration["Cron"];
@@ -78,6 +72,8 @@ namespace MySqlBackupAgent.Models
         /// The name of the backup target
         /// </summary>
         public string Name { get; }
+        
+        public string Key { get; }
         
         /// <summary>
         /// Gets the current state of the target. Triggers StateChange when set.
@@ -94,8 +90,6 @@ namespace MySqlBackupAgent.Models
         }
         
         public string CronText { get; }
-        
-        public string SafeName { get; }
 
         public bool CheckForUpdate { get; }
         public CronExpression Expression { get; }
@@ -112,7 +106,7 @@ namespace MySqlBackupAgent.Models
 
         public IObservable<string> InfoMessages => _infoMessageSubject.AsObservable();
         
-        public List<DbBackup> Backups { get; }
+        public BackupCollection Backups { get; }
         
         /// <summary>
         /// Schedule the next job and save the subscription. If an existing subscription already exists we will dispose
@@ -134,37 +128,6 @@ namespace MySqlBackupAgent.Models
             if (NextTime != null) _nextTimeSubject.OnNext(NextTime.Value);
         }
 
-        /// <summary>
-        /// Retrieves the list of backups already on the server and populates the Backups property
-        /// </summary>
-        public async Task GetExistingBackups()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var storage = scope.ServiceProvider.GetService<IStorageService>();
-            var existing = await storage.GetExistingFiles();
-
-            var startChar = SafeName.Length + 1;
-            foreach (var file in existing.Where(f => f.StartsWith(SafeName)))
-            {
-                try
-                {
-                    var parseText = file.Substring(startChar).Split('.')[0];
-                    var timeStamp = DateTime.ParseExact(parseText, _dateTimeFormat, CultureInfo.InvariantCulture);
-                    var backup = new DbBackup(file, timeStamp);
-                    if (!Backups.Contains(backup))
-                    {
-                        Backups.Add(backup);
-                    }
-                    
-                }
-                catch (Exception)
-                {
-                    // ignored
-                }
-            }
-            
-            Backups.Sort((a, b) => a.TimeStamp.CompareTo(b.TimeStamp));
-        }
         
         /// <summary>
         /// Kicks off the backup task and reschedules the next observable. Is effectively an event handler, no caller
@@ -203,10 +166,6 @@ namespace MySqlBackupAgent.Models
                 Directory.CreateDirectory(_scratchPath);
             }
 
-            // Connect to the storage service
-            using var scope = _scopeFactory.CreateScope();
-            var storage = scope.ServiceProvider.GetService<IStorageService>();
-            
             // Build the full connection string with the extra parameters recommended
             // by the MySqlBackup.NET author
             var connectionString = _connectionString + (_connectionString.EndsWith(";") ? string.Empty : ";") + 
@@ -223,18 +182,18 @@ namespace MySqlBackupAgent.Models
                 throw new Exception($"Could not get the timestamp for the database target '{Name}'");
             }
 
-            // Construct the file name and path
-            var timeText = timeStamp.Value.ToString(_dateTimeFormat);
-            var fileName = $"{SafeName}_{timeText}.sql";
-            var filePath = Path.Combine(_scratchPath, fileName);
+            // Construct the file name and path. The filename will simply be a uniquely generated string, since the
+            // backup collection is responsible for handling the final naming and organization
+            var scratchName = Guid.NewGuid().ToString().Replace("-", "") + ".sql";
+            var filePath = Path.Combine(_scratchPath, scratchName);
             string compressedPath = null;
             
-            // If we're checking the update time we can verify this now
+            // There are two cases which, if both are true, we might skip this backup. The first is if the user has to
+            // have enabled the "CheckForUpdate" option on this target, in which case we can see if the database has 
+            // not been updated more recently than the last backup.  However, the "force" option needs to be off, 
+            // otherwise we will disregard this check.
             if (CheckForUpdate && !force)
             {
-                // Get the files existing in storage 
-                var items = await storage.GetExistingFiles();
-                
                 // Get the timestamp of the last update to any of the database's tables
                 string query = $"select max(update_time) from information_schema.tables where TABLE_SCHEMA='{connection.Database}'";
                 var lastUpdate = await FromQuery(connection, query);
@@ -243,7 +202,9 @@ namespace MySqlBackupAgent.Models
                     throw new Exception($"Could not get the last update time for the database target '{Name}'");
                 }
 
-                if (!HasBeenUpdated(lastUpdate.Value, items))
+                // Check to see if the current update timestamp in the database (lastUpdate) is older than the 
+                // most recent backup.  If it is, the database hasn't been updated and we can abort the backup.
+                if (Backups.HasMoreRecentThan(lastUpdate.Value))
                 {
                     _infoMessageSubject.OnNext("Database has not been updated since last backup."); 
                     State = TargetState.Scheduled;
@@ -261,7 +222,7 @@ namespace MySqlBackupAgent.Models
 
                 // Upload
                 State = TargetState.UploadingToStorage;
-                await storage.UploadFile(compressedPath);
+                await Backups.AddBackup(new FileInfo(compressedPath), timeStamp.Value);
 
             }
             catch (Exception e)
@@ -285,39 +246,6 @@ namespace MySqlBackupAgent.Models
 
             State = TargetState.Scheduled;
             _progressSubject.OnNext(100);
-        }
-
-        /// <summary>
-        /// Figure out if the database has been updated since the last backup was taken.
-        /// </summary>
-        /// <param name="lastUpdate">the time of the last update to any database table as reported by the database
-        /// server itself</param>
-        /// <param name="existingFiles">an array of all of the existing backup files in the storage service</param>
-        /// <returns>true if the last update time is more recent than the newest database backup</returns>
-        private bool HasBeenUpdated(DateTime lastUpdate, string[] existingFiles)
-        {
-            var startChar = SafeName.Length + 1;
-            var parsed = new List<DateTime>();
-            foreach (var file in existingFiles.Where(f => f.StartsWith(SafeName)))
-            {
-                try
-                {
-                    var parseText = file.Substring(startChar).Split('.')[0];
-                    var timeStamp = DateTime.ParseExact(parseText, _dateTimeFormat, CultureInfo.InvariantCulture);
-                    parsed.Add(timeStamp);
-                }
-                catch (Exception)
-                {
-                    // ignored
-                }
-            }
-            // If we haven't had any successful parses, we should assume the database has been
-            // updated
-            if (!parsed.Any()) return true;
-
-            // If lastUpdate is more recent (greater) than the most recent parsed timestamp then 
-            // the database indeed has been updated
-            return lastUpdate >= parsed.Max();
         }
 
         private async Task DumpFromMySql(MySqlConnection connection, string filePath)
