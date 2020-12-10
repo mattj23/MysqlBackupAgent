@@ -70,9 +70,12 @@
     </tr>
     </thead>
     <tbody>
-    @foreach (var backup in _target.Backups)
+    @foreach (var backup in _view.Backups.Values.OrderByDescending(b => b.TimeStamp))
     {
-        
+        <tr>
+            <td>@backup.TimeStamp.Date.ToString()</td>
+            <td>@backup.TimeStamp.TimeOfDay.ToString()</td>
+        </tr>
     }
     </tbody>
 </table>
@@ -93,45 +96,14 @@
             throw new NullReferenceException("There appears to be no current SynchronizationContext");
         }
         
-        var target = BackupTargets.Targets[TargetKey];
-        _target = target;
-        if (target == null)
+        _target = BackupTargets.Targets[TargetKey];
+        if (_target == null)
         {
             throw new ArgumentException("Could not find backup target with that name");
         }
         
-        _view = target.ToRepr();
-        
-        target.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
-            .ObserveOn(context)
-            .Subscribe(d =>
-            {
-                _view.Progress = d;
-                StateHasChanged();
-            });
-
-        // Update for overall state
-        target.StateChange.ObserveOn(context)
-            .Subscribe(s =>
-            {
-                _view.State = s;
-                StateHasChanged();
-            });
-        
-        // Update for next scheduled time 
-        target.ScheduledChange.ObserveOn(context)
-            .Subscribe(t =>
-            {
-                _view.NextTime = t;
-                StateHasChanged();
-            });
-
-        target.InfoMessages.ObserveOn(context)
-            .Subscribe(s =>
-            {
-                _view.InfoMessage = s;
-                StateHasChanged();
-            });
+        _view = _target.CreateView();
+        _view.PropertyChanged.ObserveOn(context).Subscribe(_ => StateHasChanged());
         
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)

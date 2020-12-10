@@ -16,6 +16,16 @@ namespace MySqlBackupAgent.Models
         
         public ulong Size { get; }
 
+        /// <summary>
+        /// Creates a memberwise clone of this backup object. This DbBackup object is a simple class with fixed value
+        /// type members. Use clones to prevent concurrency problems.
+        /// </summary>
+        /// <returns>A memberwise clone of the backup object</returns>
+        public DbBackup Clone()
+        {
+            return (DbBackup) this.MemberwiseClone();
+        }
+
         public bool Equals(DbBackup other)
         {
             if (ReferenceEquals(null, other)) return false;

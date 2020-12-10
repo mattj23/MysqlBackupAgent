@@ -69,40 +69,8 @@ This is a static service, all configuration is performed through the 'appsetting
         // Load the target representation objects
         foreach (var pair in BackupTargets.Targets)
         {
-            var target = pair.Value.ToRepr();
+            var target = pair.Value.CreateView();
             _targets[pair.Key] = target;
-
-            // Update for progress bar
-            pair.Value.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
-                .ObserveOn(context)
-                .Subscribe(d =>
-                {
-                    _targets[pair.Key].Progress = d;
-                    StateHasChanged();
-                });
-
-            // Update for overall state
-            pair.Value.StateChange.ObserveOn(context)
-                .Subscribe(s =>
-                {
-                    _targets[pair.Key].State = s;
-                    StateHasChanged();
-                });
-            
-            // Update for next scheduled time 
-            pair.Value.ScheduledChange.ObserveOn(context)
-                .Subscribe(t =>
-                {
-                    _targets[pair.Key].NextTime = t;
-                    StateHasChanged();
-                });
-
-            pair.Value.InfoMessages.ObserveOn(context)
-                .Subscribe(s =>
-                {
-                    _targets[pair.Key].InfoMessage = s;
-                    StateHasChanged();
-                });
         }
         
         // Update display every second for timer

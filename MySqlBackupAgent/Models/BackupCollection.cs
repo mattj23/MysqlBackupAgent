@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,39 +15,43 @@ using MySqlBackupAgent.Services;
 
 namespace MySqlBackupAgent.Models
 {
-    public class BackupCollection : IReadOnlyList<DbBackup>
+    public class BackupCollection
     {
         private static readonly string _dateTimeFormat = "yyyy-MM-dd-HH-mm";
         private readonly ILogger _logger;
         
-        private readonly List<DbBackup> _list;
+        private readonly ConcurrentDictionary<string, DbBackup> _list;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly string _keyName;
 
-        private readonly Subject<Unit> _collectionChange;
+        private readonly Subject<DbBackup> _addSubject;
+        private readonly Subject<DbBackup> _removeSubject;
 
         public BackupCollection(string keyName, IServiceScopeFactory scopeFactory, ILogger logger)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
-            _list = new List<DbBackup>();
+            _list = new ConcurrentDictionary<string, DbBackup>();
             _keyName = keyName;
             
-            _collectionChange = new Subject<Unit>();
+            _addSubject = new Subject<DbBackup>();
+            _removeSubject = new Subject<DbBackup>();
         }
 
-        public IObservable<Unit> Changed => _collectionChange.AsObservable();
+        public IObservable<DbBackup> Added => _addSubject.AsObservable();
+        public IObservable<DbBackup> Removed => _removeSubject.AsObservable();
         
         /// <summary>
         /// Gets the total number of backups in the collection
         /// </summary>
         public int Count => _list.Count;
-        
+
         /// <summary>
-        /// Gets the backup at a given index within the collection
+        /// Get an array of copied backups. Useful for when a new observer is trying to pre-populate the currently
+        /// known backups.
         /// </summary>
-        /// <param name="index">Index of the backup to return, starting from 0</param>
-        public DbBackup this[int index] => _list[index];
+        /// <returns></returns>
+        public DbBackup[] CopyValues() => _list.Values.Select(v => v.Clone()).ToArray();
 
         /// <summary>
         /// Retrieves the list of backups in the storage provider and populates the collection. Clears any existing
@@ -68,7 +73,7 @@ namespace MySqlBackupAgent.Models
                     var parseText = file.Item1.Substring(startChar).Split('.')[0];
                     var timeStamp = DateTime.ParseExact(parseText, _dateTimeFormat, CultureInfo.InvariantCulture);
                     var backup = new DbBackup(file.Item1, timeStamp, file.Item2);
-                    _list.Add(backup);
+                    _list[file.Item1]  = backup;
                     
                 }
                 catch (Exception)
@@ -77,8 +82,6 @@ namespace MySqlBackupAgent.Models
                     // going to have every parse error from every file show up as an exception.
                 }
             }
-            
-            _list.Sort((a, b) => a.TimeStamp.CompareTo(b.TimeStamp));
         }
 
         /// <summary>
@@ -99,8 +102,9 @@ namespace MySqlBackupAgent.Models
             try
             {
                 await storage.UploadFile(file.FullName, name);
-                _list.Add(new DbBackup(name, timeStamp, (ulong) file.Length));
-                _collectionChange.OnNext(default);
+                var newBackup = new DbBackup(name, timeStamp, (ulong) file.Length);
+                _list[name] = newBackup;
+                _addSubject.OnNext(newBackup);
             }
             catch (Exception e)
             {
@@ -115,22 +119,7 @@ namespace MySqlBackupAgent.Models
         /// </summary>
         /// <param name="timeStamp">The timestamp to check against</param>
         /// <returns>true if there is a backup with a more recent timestamp, false if not</returns>
-        public bool HasMoreRecentThan(DateTime timeStamp) => _list.Any(b => b.TimeStamp > timeStamp);
+        public bool HasMoreRecentThan(DateTime timeStamp) => _list.Values.Any(b => b.TimeStamp > timeStamp);
         
-        
-        /// <summary>
-        /// Returns the IReadOnlyList enumerator
-        /// </summary>
-        public IEnumerator<DbBackup> GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable) _list).GetEnumerator();
-        }
-
-
     }
 }
