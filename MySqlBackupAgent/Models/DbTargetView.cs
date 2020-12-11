@@ -12,17 +12,27 @@ namespace MySqlBackupAgent.Models
     /// underlying DbBackupTarget by subscribing to IObservables in order to keep its state up to date without running
     /// into concurrency issues.
     /// </summary>
-    public class DbTargetView
+    public class DbTargetView : IDisposable
     {
         private readonly Subject<Unit> _changeSubject;
+        private readonly List<IDisposable> _subscriptions;
         
         public DbTargetView(string key)
         {
             Key = key;
             Progress = 0;
             _changeSubject = new Subject<Unit>();
+            _subscriptions = new List<IDisposable>();
             Backups = new Dictionary<string, DbBackup>();
+            
+            Console.WriteLine($"View Created for {Key}");
         }
+
+        ~DbTargetView()
+        {
+            Console.WriteLine($"View Destroyed for {Key}");
+        }
+
 
         public IObservable<Unit> PropertyChanged => _changeSubject.AsObservable();
         
@@ -72,6 +82,15 @@ namespace MySqlBackupAgent.Models
                     _ => "Unknown state"
                 };
 
+        public void Dispose()
+        {
+            Console.WriteLine($"Clearing subscriptions on {Key}");
+            foreach (var subscription in _subscriptions)
+            {
+                subscription.Dispose();
+            }
+        }
+        
         public void Subscribe(DbBackupTarget target)
         {
             Name = target.Name;
@@ -83,44 +102,45 @@ namespace MySqlBackupAgent.Models
             {
                 Backups[backup.FileName] = backup;
             }
-
-            target.Progress.Subscribe(d =>
+            
+            _subscriptions.Add(target.Progress.Subscribe(d =>
             {
                 Progress = d;
                 _changeSubject.OnNext(default);
-            });
+            }));
 
-            target.StateChange.Subscribe(s =>
+            _subscriptions.Add(target.StateChange.Subscribe(s =>
             {
                 State = s;
                 _changeSubject.OnNext(default);
-            });
+            }));
 
-            target.ScheduledChange.Subscribe(t =>
+            _subscriptions.Add(target.ScheduledChange.Subscribe(t =>
             {
                 NextTime = t;
                 _changeSubject.OnNext(default);
-            });
+            }));
 
-            target.InfoMessages.Subscribe(s =>
+            _subscriptions.Add(target.InfoMessages.Subscribe(s =>
             {
                 InfoMessage = s;
                 _changeSubject.OnNext(default);
-            });
+            }));
 
-            target.Backups.Added.Subscribe(b =>
+            _subscriptions.Add(target.Backups.Added.Subscribe(b =>
             {
                 Backups[b.FileName] = b.Clone();
+                Console.WriteLine($"Added backup {b.FileName}");
                 _changeSubject.OnNext(default);
-            });
+            }));
             
-            target.Backups.Added.Subscribe(b =>
+            _subscriptions.Add(target.Backups.Added.Subscribe(b =>
             {
                 if (Backups.ContainsKey(b.FileName))
                     Backups.Remove(b.FileName);
                 
                 _changeSubject.OnNext(default);
-            });
+            }));
         }
     }
 

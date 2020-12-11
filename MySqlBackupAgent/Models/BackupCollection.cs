@@ -17,7 +17,7 @@ namespace MySqlBackupAgent.Models
 {
     public class BackupCollection
     {
-        private static readonly string _dateTimeFormat = "yyyy-MM-dd-HH-mm";
+        private static readonly string _dateTimeFormat = "yyyy-MM-dd-HH-mm-ss";
         private readonly ILogger _logger;
         
         private readonly ConcurrentDictionary<string, DbBackup> _list;

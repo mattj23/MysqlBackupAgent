@@ -3,6 +3,9 @@
 @using System.Reactive.Linq
 @using System.Threading
 @using MySqlBackupAgent.Models
+
+@implements IDisposable
+
 @inject BackupTargetService BackupTargets
 
 <h3>MySQL Backup Utility</h3>
@@ -77,6 +80,14 @@ This is a static service, all configuration is performed through the 'appsetting
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
+    }
+
+    public void Dispose()
+    {
+        foreach (var value in _targets.Values)
+        {
+            value.Dispose();
+        }
     }
 
 }

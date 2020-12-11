@@ -4,6 +4,8 @@
 @using System.Threading
 @using System.Reactive.Linq
 
+@implements IDisposable
+
 @inject BackupTargetService BackupTargets
 
 <Confirmation @ref=_confirm />
@@ -70,7 +72,7 @@
     </tr>
     </thead>
     <tbody>
-    @foreach (var backup in _view.Backups.Values.OrderByDescending(b => b.TimeStamp))
+    @foreach (var backup in _backups)
     {
         <tr>
             <td>@backup.TimeStamp.Date.ToString()</td>
@@ -87,7 +89,8 @@
     private DbTargetView _view;
     private DbBackupTarget _target;
     private Confirmation _confirm;
-
+    private List<DbBackup> _backups;
+    
     protected override void OnInitialized()
     {
         var context = SynchronizationContext.Current;
@@ -97,18 +100,30 @@
         }
         
         _target = BackupTargets.Targets[TargetKey];
+        UpdateBackupList();
         if (_target == null)
         {
             throw new ArgumentException("Could not find backup target with that name");
         }
         
         _view = _target.CreateView();
-        _view.PropertyChanged.ObserveOn(context).Subscribe(_ => StateHasChanged());
+        _view.PropertyChanged.ObserveOn(context)
+            .Subscribe(_ =>
+        {
+            UpdateBackupList();
+            StateHasChanged();
+        });
         
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
     }
+
+    private void UpdateBackupList()
+    {
+        _backups = _target.Backups.CopyValues().OrderByDescending(b => b.TimeStamp).ToList();
+    }
+    
 
     private async Task ForceBackup()
     {
@@ -123,6 +138,12 @@
         {
             await Task.Run(() =>_target.RunJob(true));
         }
+    }
+
+    public void Dispose()
+    {
+        _view.Dispose();
+        Console.WriteLine("Backup disposed");
     }
 
 }
