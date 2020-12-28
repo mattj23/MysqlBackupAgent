@@ -15,6 +15,13 @@ using MySqlBackupAgent.Services;
 
 namespace MySqlBackupAgent.Models
 {
+    /// <summary>
+    /// A BackupCollection owns a collection of database backups.  It abstracts the actual storage mechanism to the
+    /// IStorageService, but itself is responsible for the naming and organization of backups as well as maintaining
+    /// knowledge of the entire collection of backups.  When a backup is added or removed, it goes through this object,
+    /// and this object informs all of its subscribers as to the change in the collection state.  This allows for a
+    /// single centralized handler of all backups.
+    /// </summary>
     public class BackupCollection
     {
         private static readonly string _dateTimeFormat = "yyyy-MM-dd-HH-mm-ss";

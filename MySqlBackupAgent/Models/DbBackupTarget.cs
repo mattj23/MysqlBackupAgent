@@ -15,6 +15,20 @@ using MySqlBackupAgent.Services;
 
 namespace MySqlBackupAgent.Models
 {
+    /// <summary>
+    /// A DbBackupTarget is a single database (1:1 relationship with db/credentials) that is a target for being backed
+    /// up. DbBackupTargets are built directly from entries in the application's configuration file, and are accessible
+    /// to consumers through the BackupTargetService, which maintains a thread-safe list of targets.
+    ///
+    /// There should only be a single DbBackupTarget for each database target in the entire application scope.
+    /// Properties of the object, like progress, message, next scheduled time, can and do change as the application goes
+    /// through its various tasks. These changes result in OnNext events being published through IObservable interfaces,
+    /// which are intended to be consumed by other objects interested in the current DbBackupTarget state.
+    ///
+    /// For view purposes, a DbTargetView handles these subscriptions and gives an object which can be instantiated
+    /// as many times and in as many places as needed, and disposed of when no longer being used. This allows for
+    /// synchronization across the UI based on changes happening in the DbBackupTarget.
+    /// </summary>
     public class DbBackupTarget
     {
         
@@ -69,10 +83,14 @@ namespace MySqlBackupAgent.Models
         }
         
         /// <summary>
-        /// The name of the backup target
+        /// Gets the name of the backup target
         /// </summary>
         public string Name { get; }
         
+        /// <summary>
+        /// Gets a key associated with the backup target. This should be a filesystem and url safe name which can be
+        /// used for associated purposes, and is defined in the appsettings.json file.
+        /// </summary>
         public string Key { get; }
         
         /// <summary>
@@ -89,23 +107,48 @@ namespace MySqlBackupAgent.Models
             }
         }
         
+        /// <summary>
+        /// Gets the actual cron text associated with this backup target. 
+        /// </summary>
         public string CronText { get; }
 
+        /// <summary>
+        /// Gets a flag that indicates whether or not this target should use MySQL's metadata tables to see if the db
+        /// has been updated since the last backup was run.  If it has not been the scheduled backup will not occur,
+        /// but a manual backup will still run.
+        /// </summary>
         public bool CheckForUpdate { get; }
+        
         public CronExpression Expression { get; }
 
         public DateTime? NextTime => Expression.GetNextOccurrence(DateTime.UtcNow);
 
         public TimeSpan? RunsIn => NextTime - DateTime.UtcNow;
 
+        /// <summary>
+        /// Gets an IObservable which publishes a double when the current progress indicator for the backup changes. The
+        /// progress value is generic and used independently by the dump, compression, and restore processes.
+        /// </summary>
         public IObservable<double> Progress => _progressSubject.AsObservable();
 
+        /// <summary>
+        /// Gets an IObservable which publishes a TargetState enum when the State property changes.
+        /// </summary>
         public IObservable<TargetState> StateChange => _stateSubject.AsObservable();
 
+        /// <summary>
+        /// Gets an IObservable which publishes a DateTime when the next scheduled time for the backup to run occurs
+        /// </summary>
         public IObservable<DateTime> ScheduledChange => _nextTimeSubject.AsObservable();
 
+        /// <summary>
+        /// Gets an IObservable which publishes string information messages as they occur.
+        /// </summary>
         public IObservable<string> InfoMessages => _infoMessageSubject.AsObservable();
         
+        /// <summary>
+        /// Gets a BackupCollection object which owns the actual backups taken for this target.
+        /// </summary>
         public BackupCollection Backups { get; }
         
         /// <summary>
@@ -153,7 +196,7 @@ namespace MySqlBackupAgent.Models
         }
 
         /// <summary>
-        /// Performs a backup
+        /// Performs a backup of the database target
         /// </summary>
         /// <param name="force">If true, this will ignore the changed check</param>
         /// <returns></returns>
@@ -248,6 +291,13 @@ namespace MySqlBackupAgent.Models
             _progressSubject.OnNext(100);
         }
 
+        /// <summary>
+        /// Perform a MySQL dump to the filepath given in the method parameters.  This will change the DbTargetState,
+        /// create a MySqlBackup object, and connect the progress changed event handler to the progress IObservable.
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="filePath"></param>
+        /// <returns>An awaitable task that completes when the dump to file is finished.</returns>
         private async Task DumpFromMySql(MySqlConnection connection, string filePath)
         {
             // Push out the state information for anyone who's watching
@@ -264,6 +314,14 @@ namespace MySqlBackupAgent.Models
             await connection.CloseAsync();
         }
 
+        /// <summary>
+        /// Perform file compression on a given filename. This will change the DbTargetState, and will write out to the
+        /// same file name with ".gz" appended to the file extension.  This method will publish progress changes to the
+        /// progress IObservable.
+        /// </summary>
+        /// <param name="filePath">The path of the file to compress. The output file will be this value plus ".gz"
+        /// appended to the extension.</param>
+        /// <returns>An awaitable task that completes when the compression is finished.</returns>
         private async Task<string> CompressFile(string filePath)
         {
             State = TargetState.Compressing;
@@ -286,6 +344,12 @@ namespace MySqlBackupAgent.Models
             return compressedPath;
         }
         
+        /// <summary>
+        /// A wrapper method to convert a ProgressChangedEvent from the MySqlBackup object to something that pushes
+        /// out messages on the progress changed IObservable.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void BackupOnExportProgressChanged(object sender, ExportProgressArgs e)
         {
             var current = (double) e.CurrentRowIndexInAllTables;
@@ -293,6 +357,14 @@ namespace MySqlBackupAgent.Models
             _progressSubject.OnNext(100.0 * current / all);
         }
         
+        /// <summary>
+        /// A helper method to convert a query which returns a single MySQL datetime response to a C# DateTime type.
+        /// This is used for both getting the current database time (for the backup timestamp) and for getting the
+        /// last updated timestamp from the metadata tables. Returns a null value if nothing is returned.
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="query"></param>
+        /// <returns></returns>
         private async Task<DateTime?> FromQuery(MySqlConnection connection, string query)
         {
             var command = new MySqlCommand(query, connection);
@@ -306,6 +378,13 @@ namespace MySqlBackupAgent.Models
             return null;
         }
 
+        /// <summary>
+        /// Gets the current database time as a DateTime, or returns null if the query doesn't return anything. Use this
+        /// to determine what the database time is, which should be used by the backup system to timestamp the backups
+        /// themselves.
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <returns></returns>
         private Task<DateTime?> CurrentTimestamp(MySqlConnection connection)
         {
             return FromQuery(connection, "SELECT CURRENT_TIMESTAMP()");
