@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -25,13 +26,11 @@ namespace MySqlBackupAgent.Services
             _logger = logger;
             _section = section;
             _targets = new ConcurrentDictionary<string, DbBackupTarget>();
-            
-
         }
 
         public IReadOnlyDictionary<string, DbBackupTarget> Targets => _targets;
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             using var scope = _scopeFactory.CreateScope();
             var environment = scope.ServiceProvider.GetService<IWebHostEnvironment>();
@@ -40,18 +39,30 @@ namespace MySqlBackupAgent.Services
             _logger.Log(LogLevel.Information, "Creating backup targets");
             foreach (var child in _section.GetChildren())
             {
-                var target = new DbBackupTarget(child, workingPath, _scopeFactory);
+                // Construct the backup collection
+                var backupCollection = new BackupCollection(child.Key, _scopeFactory, _logger);
+                await backupCollection.GetExistingBackups();
+                
+                // Construct the backup target itself
+                var target = new DbBackupTarget(child.Key, child, workingPath, backupCollection);
+                
                 _logger.Log(LogLevel.Information, "Created target {0}", target.Name);
-                _targets[target.Name] = target;
-                _targets[target.Name].ScheduleNext();
+                _targets[child.Key] = target;
+                _targets[child.Key].ScheduleNext();
             }
 
-            return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+
+        private static string SanitizeName(string name)
+        {
+            var invalids = Path.GetInvalidFileNameChars();
+            return string.Join("_", name.Split(invalids, StringSplitOptions.RemoveEmptyEntries))
+                .TrimEnd('.').Trim().Replace(" ", "_"); 
         }
     }
 

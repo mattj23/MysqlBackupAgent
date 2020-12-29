@@ -1,0 +1,40 @@
+<BSModal @ref="_modal"
+          IsCentered="true">
+    <BSModalHeader>@_title</BSModalHeader>
+    <BSModalBody>@_message</BSModalBody>
+    <BSModalFooter>
+        <BSButton Color="Color.Secondary" OnClick="@Cancel"><div style="width: 7em">Cancel</div></BSButton>
+        <BSButton Color="Color.Secondary" OnClick="@Ok"><div style="width: 7em">OK</div></BSButton>
+    </BSModalFooter>
+</BSModal>
+
+@code {
+    private BSModal _modal;
+    private string _title;
+    private string _message;
+
+    private TaskCompletionSource<bool> _completion;
+
+    public Task<bool> GetConfirmation(string title, string message)
+    {
+        _title = title;
+        _message = message;
+        _completion = new TaskCompletionSource<bool>();
+        _modal.Show();
+        return _completion.Task;
+    }
+
+    private void Ok()
+    {
+        _modal.Hide();
+        _completion.TrySetResult(true);
+        StateHasChanged();
+    }
+    
+    private void Cancel()
+    {
+        _modal.Hide();
+        _completion.TrySetResult(false);
+        StateHasChanged();
+    }
+}

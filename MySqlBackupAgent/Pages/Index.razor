@@ -3,52 +3,58 @@
 @using System.Reactive.Linq
 @using System.Threading
 @using MySqlBackupAgent.Models
-@using System.ComponentModel
+
+@implements IDisposable
+
 @inject BackupTargetService BackupTargets
 
 <h3>MySQL Backup Utility</h3>
 This is a static service, all configuration is performed through the 'appsettings.json' file.
 
-@foreach (var target in _targets.Values)
-{
-    <BSCard Color="Color.Dark">
-        <BSCard CardType="CardType.Body">
-            <BSCard CardType="CardType.Title">@target.Name</BSCard>
-            <BSCard CardType="CardType.Text">
-                <!-- Information message for this target -->
-                @if (!string.IsNullOrEmpty(target.InfoMessage))
-                {
-                    <div>@target.InfoMessage</div>
-                }
+<table class="table">
+    <thead class="thead-dark">
+    <tr>
+        <th scope="col" class="text-nowrap">Database</th>
+        <th scope="col" class="text-nowrap">Status</th>
+        <th scope="col" class="w-100">Progress/Message</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+    @foreach (var target in _targets.Values)
+    {
+        <tr>
+            <td class="text-nowrap">
+                <a href="backup/@target.Key">@target.Name</a>
+            </td>
+            
+            <!-- Status Column -->
+            <td class="text-nowrap">@target.StatusText</td>
+            
+            <!-- Progress/Message Column -->
+            @if (target.State == TargetState.BackingUp || 
+                 target.State == TargetState.Compressing ||
+                 target.State == TargetState.Restoring || 
+                 target.State == TargetState.Decompressing)
+            {
+                <td>
+                <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
+                </td>
+            }
+            else if (!string.IsNullOrEmpty(target.InfoMessage))
+            {
+                <td>@target.InfoMessage</td>
+            }
+            else
+            {
+                <td></td>
+            }
+        </tr>
+        
+    }
+    </tbody>
+</table>
 
-
-                <!-- Detailed info for current state -->
-                @if (target.State == TargetState.BackingUp)
-                {
-                    <div>Backing Up Database</div><br/>
-                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
-                }
-                
-                else if (target.State == TargetState.Scheduled)
-                {
-                    <span>Backup runs in @target.RunsInText</span>
-                }
-                
-                else if (target.State == TargetState.Compressing)
-                {
-                    <div>Compressing Backup File</div><br/>
-                    <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>
-                }
-                
-                else if (target.State == TargetState.UploadingToStorage)
-                {
-                    <div>Uploading to storage...</div>
-                }
-            </BSCard>
-        </BSCard>
-    </BSCard>
-    <br />
-}
 
 
 @code {
@@ -69,47 +75,22 @@ This is a static service, all configuration is performed through the 'appsetting
         // Load the target representation objects
         foreach (var pair in BackupTargets.Targets)
         {
-            _targets[pair.Key] = pair.Value.ToRepr();
-            _targets[pair.Key].State = pair.Value.State;
-            _targets[pair.Key].NextTime = pair.Value.NextTime;
-
-            // Update for progress bar
-            pair.Value.Progress //.Throttle(TimeSpan.FromSeconds(0.5))
-                .ObserveOn(context)
-                .Subscribe(d =>
-                {
-                    _targets[pair.Key].Progress = d;
-                    StateHasChanged();
-                });
-
-            // Update for overall state
-            pair.Value.StateChange.ObserveOn(context)
-                .Subscribe(s =>
-                {
-                    _targets[pair.Key].State = s;
-                    StateHasChanged();
-                });
-            
-            // Update for next scheduled time 
-            pair.Value.ScheduledChange.ObserveOn(context)
-                .Subscribe(t =>
-                {
-                    _targets[pair.Key].NextTime = t;
-                    StateHasChanged();
-                });
-
-            pair.Value.InfoMessages.ObserveOn(context)
-                .Subscribe(s =>
-                {
-                    _targets[pair.Key].InfoMessage = s;
-                    StateHasChanged();
-                });
+            var target = pair.Value.CreateView();
+            _targets[pair.Key] = target;
         }
         
         // Update display every second for timer
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
+    }
+
+    public void Dispose()
+    {
+        foreach (var value in _targets.Values)
+        {
+            value.Dispose();
+        }
     }
 
 }

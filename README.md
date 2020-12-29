@@ -2,7 +2,7 @@
 
 This is intended to be a user friendly, easily deployable, containerized service that can perform backups of multiple MySQL/MariaDB databases on individual cron-style schedules.  Has a web interface built on ASP.NET Core 3.1 using server-side Blazor.
 
-Only works for MySQL compatible databases, as it uses the `MySqlBackup.Net` project, which in turn works with `MySql.Data`.
+Only works for MySQL compatible databases, as it uses the [`MySqlBackup.Net`](https://github.com/MySqlBackupNET/MySqlBackup.Net) project, which in turn works with `MySql.Data`.
 
 Currently this project is in an early proof of concept stage, and has the following capabilites:
 
@@ -75,3 +75,27 @@ All application configuration is done through the standard ASP.NET Core `appsett
 }
 
 ```
+
+## Design Decisions
+
+The following are design decisions made about the software.
+
+### MySQL Only
+
+Originally I looked into making this work with Postgres as well, however, as far as a backup solution went there weren't any options aside from `pgdump`, which would then constrain the software such that a binary would have to be installed in the Asp.NET Core environment.  For a docker image this seemed reasonable, but I wasn't sure at this point if this is a constraint I wanted to adopt.
+
+Extending the software to work with other databases will require some slight surgery on the class taxonomy, specifically breaking a few classes out to interfaces and/or wrapping an underlying backup/restore provider interface that can encapsulate the differences.  Since my use case was primarily MySQL, I stuck with the simple version for now.
+
+### Database Timestamps
+
+I chose to use the database's reported time as the timestamp saved with each backup, but use the runtime environment's time for the scheduling.
+
+In a sane environment, these will be very, very close to each other.  However, in the case that they're not, my rationale for splitting the times up is as follows:
+
+* In MySQL, the last updated time of the tables is found through a query of `information_schema.tables`, and the time it returns is based on the database server's own internal clock. 
+* If we save database backups with timestamps from the ASP.NET environment's clock and this differs significantly from the MySQL server clock, it's possible that we can get in a situation where the database has been updated at a time after the last backup was taken, but before the ASP.NET environment's clock said the backup was taken.  In this case a backup target set to check for updates would not take a backup even though there was new data in the database.
+* There is no easy way to schedule backups in the ASP.NET environment based on the MySQL database's clock. We can measure and maintain a clock offset between the two systems, but handling changes as clocks are adjusted runs into common time synchronization issues.
+* Scheduling based on the ASP.NET environment and then storing a per-backup time offset to get around the possibility of clocks being adjusted would have required more than the simple filename method of storage I wanted to preserve to make the service easy to deploy.
+* In this case it felt like using the cron style scheduling in the ASP.NET environment would meet the intention of a periodic backup system while using the database clock for timestamps would avoid any issues with the system not knowing whether a database had been updated since the last backup.
+
+You can avoid any confusion by just making sure that your database server and your runtime environment are syncronized off the same time source.

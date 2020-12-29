@@ -1,0 +1,177 @@
+@page "/backup/{TargetKey}"
+@using MySqlBackupAgent.Services
+@using MySqlBackupAgent.Models
+@using System.Threading
+@using System.Reactive.Linq
+
+@implements IDisposable
+
+@inject BackupTargetService BackupTargets
+
+<Confirmation @ref=_confirm />
+
+<table class="table table-borderless">
+    <thead class="thead-dark">
+    <tr>
+        <th colspan="2">@_view.Name</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td class="text-nowrap">Cron Schedule</td>
+        <td class="w-100">
+            <span>@_view.CronText</span>
+            @if (_view.State == TargetState.Scheduled)
+            {
+                <BSButton Color="Color.Primary" OnClick="@ForceBackup">Backup Now</BSButton>
+            }
+        </td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Status</td>
+        <td>@_view.StatusText</td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Progress</td>
+        <td>
+            @if (_view.State == TargetState.BackingUp || 
+                 _view.State == TargetState.Compressing ||
+                 _view.State == TargetState.Restoring ||
+                 _view.State == TargetState.Decompressing)
+            {
+                <BSProgress Value="@((int) _view.Progress)" IsStriped="true" IsAnimated="true"/>
+            }
+            else
+            {
+                <span>N/A</span>
+            }
+        </td>
+    </tr>
+    <tr>
+        <td class="text-nowrap">Info Message</td>
+        <td>
+            @if (!string.IsNullOrEmpty(_view.InfoMessage))
+            {
+                <span>@_view.InfoMessage</span>
+            }
+            else
+            {
+                <span>N/A</span>
+            }
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<br />
+<hr />
+<br />
+
+<table class="table table-borderless">
+    <thead class="thead-dark">
+    <tr>
+        <th>Backup Time</th>
+        <th>Commands</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var backup in _backups)
+    {
+        <tr>
+            <td>@backup.TimeStamp.ToString()</td>
+            <td>
+                @if (_view.State == TargetState.Scheduled)
+                {
+                    <BSButton Color="Color.Warning" OnClick="@(() => RestoreBackup(backup))">Restore</BSButton>
+                }
+                else
+                {
+                    <span>Target is currently busy...</span>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    [Parameter]
+    public string TargetKey { get; set; }
+
+    private DbTargetView _view;
+    private DbBackupTarget _target;
+    private Confirmation _confirm;
+    private List<DbBackup> _backups;
+    
+    protected override void OnInitialized()
+    {
+        var context = SynchronizationContext.Current;
+        if (context == null)
+        {
+            throw new NullReferenceException("There appears to be no current SynchronizationContext");
+        }
+        
+        _target = BackupTargets.Targets[TargetKey];
+        UpdateBackupList();
+        if (_target == null)
+        {
+            throw new ArgumentException("Could not find backup target with that name");
+        }
+        
+        _view = _target.CreateView();
+        _view.PropertyChanged.ObserveOn(context)
+            .Subscribe(_ =>
+        {
+            UpdateBackupList();
+            StateHasChanged();
+        });
+        
+        Observable.Interval(TimeSpan.FromSeconds(1))
+            .ObserveOn(context)
+            .Subscribe(l => StateHasChanged());
+    }
+
+    private void UpdateBackupList()
+    {
+        _backups = _target.Backups.CopyValues().OrderByDescending(b => b.TimeStamp).ToList();
+    }
+
+    private async Task RestoreBackup(DbBackup backup)
+    {
+        var result = await _confirm.GetConfirmation("Confirm Restore",
+            $"Are you absolutely sure you want to restore the database to the state it was at {backup.TimeStamp}? The current contents of the database will be overwritten.");
+
+        if (!result) return;
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        
+        result = await _confirm.GetConfirmation("Confirm Restore Again",
+            "Confirm one more time that you want to perform this restore. Take a manual backup of the database first if you are at all unsure.  After you hit OK, the current state of the database will otherwise be lost forever.");
+        
+        if (!result) return;
+        
+       _target.RunRestore(backup);
+    }
+
+    private async Task ForceBackup()
+    {
+        var result = await _confirm.GetConfirmation("Confirm Backup", "Are you sure you want to force a backup task for this target?");
+
+        if (_target.State != TargetState.Scheduled)
+        {
+            return;
+        }
+        
+        if (result)
+        {
+            await Task.Run(() =>_target.RunBackup(true));
+        }
+    }
+
+    public void Dispose()
+    {
+        _view.Dispose();
+        Console.WriteLine("Backup disposed");
+    }
+
+}
