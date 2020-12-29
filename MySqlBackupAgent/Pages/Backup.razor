@@ -34,7 +34,10 @@
     <tr>
         <td class="text-nowrap">Progress</td>
         <td>
-            @if (_view.State == TargetState.BackingUp || _view.State == TargetState.Compressing)
+            @if (_view.State == TargetState.BackingUp || 
+                 _view.State == TargetState.Compressing ||
+                 _view.State == TargetState.Restoring ||
+                 _view.State == TargetState.Decompressing)
             {
                 <BSProgress Value="@((int) _view.Progress)" IsStriped="true" IsAnimated="true"/>
             }
@@ -67,16 +70,18 @@
 <table class="table table-borderless">
     <thead class="thead-dark">
     <tr>
-        <th>Date</th>
-        <th>Time</th>
+        <th>Backup Time</th>
+        <th>Commands</th>
     </tr>
     </thead>
     <tbody>
     @foreach (var backup in _backups)
     {
         <tr>
-            <td>@backup.TimeStamp.Date.ToString()</td>
-            <td>@backup.TimeStamp.TimeOfDay.ToString()</td>
+            <td>@backup.TimeStamp.ToString()</td>
+            <td>
+                <BSButton Color="Color.Warning" OnClick="@(() => RestoreBackup(backup))">Restore</BSButton>
+            </td>
         </tr>
     }
     </tbody>
@@ -123,7 +128,11 @@
     {
         _backups = _target.Backups.CopyValues().OrderByDescending(b => b.TimeStamp).ToList();
     }
-    
+
+    private async Task RestoreBackup(DbBackup backup)
+    {
+       _target.RunRestore(backup);
+    }
 
     private async Task ForceBackup()
     {
@@ -136,7 +145,7 @@
         
         if (result)
         {
-            await Task.Run(() =>_target.RunJob(true));
+            await Task.Run(() =>_target.RunBackup(true));
         }
     }
 

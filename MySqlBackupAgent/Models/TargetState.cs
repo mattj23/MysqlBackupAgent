@@ -38,6 +38,8 @@ namespace MySqlBackupAgent.Models
         
         DownloadingFromStorage,
         
+        Decompressing,
+        
         Restoring
     }
 }

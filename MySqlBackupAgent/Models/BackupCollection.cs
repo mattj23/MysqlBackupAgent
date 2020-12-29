@@ -120,6 +120,21 @@ namespace MySqlBackupAgent.Models
             }
         }
 
+        public async Task RetrieveBackup(DbBackup backup, string destinationPath)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var storage = scope.ServiceProvider.GetService<IStorageService>();
+            try
+            {
+                await storage.DownloadFile(backup.FileName, destinationPath);
+            }
+            catch (Exception e)
+            {
+                _logger.Log(LogLevel.Error, e.Message);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Checks to see if the backup collection has any backup with a more recent timestamp than the one passed in
         /// as an argument.

@@ -167,7 +167,7 @@ namespace MySqlBackupAgent.Models
             _subscription?.Dispose();
 
             // Subscribe to the next scheduled time
-            _subscription = Observable.Timer(offset.Value) .Subscribe(l => RunJob());
+            _subscription = Observable.Timer(offset.Value) .Subscribe(l => RunBackup());
             if (NextTime != null) _nextTimeSubject.OnNext(NextTime.Value);
         }
 
@@ -176,8 +176,10 @@ namespace MySqlBackupAgent.Models
         /// Kicks off the backup task and reschedules the next observable. Is effectively an event handler, no caller
         /// ever needs to be waiting on this.
         /// </summary>
-        public async void RunJob(bool force=false)
+        public async void RunBackup(bool force=false)
         {
+            if (State != TargetState.Scheduled) return;
+            
             _subscription?.Dispose();
             _infoMessageSubject.OnNext(string.Empty);
             
@@ -191,12 +193,51 @@ namespace MySqlBackupAgent.Models
                 Console.WriteLine(e);
                 _infoMessageSubject.OnNext("Error occurred while trying to perform backup"); 
             }
-
-            ScheduleNext();
+            finally
+            {
+                ScheduleNext();
+            }
         }
 
         /// <summary>
-        /// Performs a backup of the database target
+        /// Kick off a restore task.  Cancels the next backup subscription and then re-subscribes at the end, in order
+        /// to prevent a backup from trying to start while the restore operation is happening.
+        /// </summary>
+        /// <param name="backup">The DbBackup object to restore. Must be a member of the Backups collection.</param>
+        public async void RunRestore(DbBackup backup)
+        {
+            if (State != TargetState.Scheduled) return;
+            
+            _subscription?.Dispose();
+            _infoMessageSubject.OnNext("Running restore");
+
+            try
+            {
+                // Build the full connection string with the extra parameters recommended
+                // by the MySqlBackup.NET author
+                var connectionString = _connectionString + (_connectionString.EndsWith(";") ? string.Empty : ";") +
+                                       "charset=utf8;convertzerodatetime=true;";
+
+                // Establish the connection to the database
+                await using var connection = new MySqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                await RestoreTo(connection, backup);
+            }
+            catch (Exception e)
+            {
+                // TODO: Logging
+                Console.WriteLine(e);
+                _infoMessageSubject.OnNext("Error occurred while trying to perform backup");
+            }
+            finally
+            {
+                ScheduleNext();
+            }
+        }
+
+        /// <summary>
+        /// Performs a backup of the database target.
         /// </summary>
         /// <param name="force">If true, this will ignore the changed check</param>
         /// <returns></returns>
@@ -290,6 +331,54 @@ namespace MySqlBackupAgent.Models
             State = TargetState.Scheduled;
             _progressSubject.OnNext(100);
         }
+        
+
+        private async Task RestoreTo(MySqlConnection connect, DbBackup backup)
+        {
+            State = TargetState.DownloadingFromStorage;
+            
+            // Prepare the scratch directory and temporary file
+            if (!Directory.Exists(_scratchPath))
+            {
+                Directory.CreateDirectory(_scratchPath);
+            }
+            
+            // Construct the file name and path. The filename will simply be a uniquely generated string, since the
+            // backup collection is responsible for handling the final naming and organization
+            var scratchName = Guid.NewGuid().ToString().Replace("-", "") + ".sql";
+            var scratchPath = Path.Combine(_scratchPath, scratchName);
+            var compressedPath = scratchPath + ".gz";
+            
+            try
+            {
+                // Download and decompress the file
+                await Backups.RetrieveBackup(backup, compressedPath);
+                await DecompressFile(compressedPath, scratchPath);
+                
+                // Restore the backup
+                await RestoreToMySql(connect, scratchPath);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+            finally
+            {
+                if (File.Exists(scratchPath))
+                {
+                    File.Delete(scratchPath);
+                }
+                
+                if (File.Exists(compressedPath))
+                {
+                    File.Delete(compressedPath);
+                }
+
+                State = TargetState.Scheduled;
+                _progressSubject.OnNext(100);
+            }
+        }
 
         /// <summary>
         /// Perform a MySQL dump to the filepath given in the method parameters.  This will change the DbTargetState,
@@ -311,6 +400,27 @@ namespace MySqlBackupAgent.Models
             cmd.Connection = connection;
             backup.ExportToFile(filePath);
             backup.ExportProgressChanged -= BackupOnExportProgressChanged;
+            await connection.CloseAsync();
+        }
+
+        /// <summary>
+        /// Perform a MySQL restore on the given connection using the specified dump file.
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="filePath"></param>
+        /// <returns>An awaitable task that completes when the restore is finished.</returns>
+        private async Task RestoreToMySql(MySqlConnection connection, string filePath)
+        {
+            State = TargetState.Restoring;
+            _progressSubject.OnNext(0);
+            
+            await using var cmd = new MySqlCommand();
+            using var restore = new MySqlBackup(cmd);
+            
+            restore.ImportProgressChanged += RestoreOnImportProgressChanged;
+            cmd.Connection = connection;
+            restore.ImportFromFile(filePath);
+            restore.ImportProgressChanged -= RestoreOnImportProgressChanged;
             await connection.CloseAsync();
         }
 
@@ -345,8 +455,30 @@ namespace MySqlBackupAgent.Models
         }
         
         /// <summary>
-        /// A wrapper method to convert a ProgressChangedEvent from the MySqlBackup object to something that pushes
-        /// out messages on the progress changed IObservable.
+        /// Perform file decompression on a given filename. This will change the DbTargetState and will publish
+        /// progress changes to the Progress IObservable.
+        /// </summary>
+        /// <param name="compressedPath">Path to the compressed file</param>
+        /// <param name="destPath">File path to write the decompressed file to</param>
+        /// <returns>An awaitable which completes when the decompression is finished</returns>
+        private async Task DecompressFile(string compressedPath, string destPath)
+        {
+            State = TargetState.Decompressing;
+            await using var outputFileStream = File.OpenWrite(destPath);
+            await using var inputFileStream = File.OpenRead(compressedPath);
+            await using var readStream = new GZipInputStream(inputFileStream);
+            
+            var buffer = new byte[1024 * 2000];
+            while (await readStream.ReadAsync(buffer) > 0)
+            {
+                outputFileStream.Write(buffer);
+                _progressSubject.OnNext(100.0 * inputFileStream.Position / inputFileStream.Length);
+            }
+        }
+        
+        /// <summary>
+        /// A wrapper method to convert a ExportProgressChanged event from the MySqlBackup object to something that
+        /// pushes out messages on the Progress IObservable.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -357,6 +489,17 @@ namespace MySqlBackupAgent.Models
             _progressSubject.OnNext(100.0 * current / all);
         }
         
+        /// <summary>
+        /// A wrapper method to convert an ImportProgressChanged event from the MySqlBackup object to something that
+        /// pushes out messages on the Progress IObservable
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void RestoreOnImportProgressChanged(object sender, ImportProgressArgs e)
+        {
+            _progressSubject.OnNext(e.PercentageCompleted);
+        }
+
         /// <summary>
         /// A helper method to convert a query which returns a single MySQL datetime response to a C# DateTime type.
         /// This is used for both getting the current database time (for the backup timestamp) and for getting the

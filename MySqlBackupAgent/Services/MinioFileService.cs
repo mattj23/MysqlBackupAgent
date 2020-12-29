@@ -44,6 +44,22 @@ namespace MySqlBackupAgent.Services
             await client.PutObjectAsync(_settings.Bucket, fileName, filePath);
         }
 
+        public async Task DownloadFile(string storedName, string destinationPath)
+        {
+            if (!string.IsNullOrEmpty(_settings.Prefix))
+            {
+                storedName = $"{_settings.Prefix}/{storedName}";
+            }
+
+            await using var saveStream = File.Create(destinationPath);
+            
+            var client = GetClient();
+            await client.GetObjectAsync(_settings.Bucket, storedName, (stream) =>
+            {
+                stream.CopyTo(saveStream);
+            });
+        }
+
         /// <summary>
         /// Retrieve all existing files from the backup storage location. If the bucket is not found the returned
         /// array will be empty.

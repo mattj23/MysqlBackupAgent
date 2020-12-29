@@ -32,7 +32,10 @@ This is a static service, all configuration is performed through the 'appsetting
             <td class="text-nowrap">@target.StatusText</td>
             
             <!-- Progress/Message Column -->
-            @if (target.State == TargetState.BackingUp || target.State == TargetState.Compressing)
+            @if (target.State == TargetState.BackingUp || 
+                 target.State == TargetState.Compressing ||
+                 target.State == TargetState.Restoring || 
+                 target.State == TargetState.Decompressing)
             {
                 <td>
                 <BSProgress Value="@((int) target.Progress)" IsStriped="true" IsAnimated="true"/>

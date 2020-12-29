@@ -13,6 +13,15 @@ namespace MySqlBackupAgent.Services
         /// specified, the name of the provided file may be used instead</param>
         /// <returns>an awaitable task</returns>
         public Task UploadFile(string filePath, string storedName=null);
+
+        /// <summary>
+        /// Retrieve a file from the storage service.  The destination filename must be specified, but does not need
+        /// to be the same as the stored name.
+        /// </summary>
+        /// <param name="storedName">The name/path in the service by which the file is identified</param>
+        /// <param name="destinationPath">A path to save the file to</param>
+        /// <returns>An awaitable task which completes when the download is finished</returns>
+        public Task DownloadFile(string storedName, string destinationPath);
         
         /// <summary>
         /// Get an array of all existing files in the storage location.

@@ -77,6 +77,9 @@ namespace MySqlBackupAgent.Models
                     TargetState.BackingUp => "Backing Up",
                     TargetState.Compressing => "Compressing",
                     TargetState.UploadingToStorage => "Uploading to storage",
+                    TargetState.Restoring => "Restoring database",
+                    TargetState.DownloadingFromStorage => "Retrieving from storage",
+                    TargetState.Decompressing => "Decompressing",
                     TargetState.Scheduled =>
                         RunsIn.HasValue ? $"Runs in {RunsIn:hh\\:mm\\:ss}" : "No scheduled time",
                     _ => "Unknown state"
