@@ -7,6 +7,7 @@
 @implements IDisposable
 
 @inject BackupTargetService BackupTargets
+@inject TimeZoneService UserTimeZone
 
 <Confirmation @ref=_confirm />
 
@@ -71,6 +72,8 @@
     <thead class="thead-dark">
     <tr>
         <th>Backup Time</th>
+        <th>Age</th>
+        <th>Size</th>
         <th>Commands</th>
     </tr>
     </thead>
@@ -78,7 +81,12 @@
     @foreach (var backup in _backups)
     {
         <tr>
-            <td>@backup.TimeStamp.ToString()</td>
+            <!-- Backup Info -->
+            <td>@(UserTimeZone.ToLocal(backup.TimeStamp))</td>
+            <td>@((backup.TimeStamp - DateTime.UtcNow).ToHumanReadable())</td>
+            <td>@backup.Size.ToHumanReadableSize()</td>
+
+            <!-- Command Options -->
             <td>
                 @if (_view.State == TargetState.Scheduled)
                 {
@@ -103,7 +111,7 @@
     private Confirmation _confirm;
     private List<DbBackup> _backups;
     
-    protected override void OnInitialized()
+    protected override async void OnInitialized()
     {
         var context = SynchronizationContext.Current;
         if (context == null)
@@ -129,6 +137,8 @@
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
+
+        await UserTimeZone.LoadOffset();
     }
 
     private void UpdateBackupList()
@@ -170,8 +180,7 @@
 
     public void Dispose()
     {
-        _view.Dispose();
-        Console.WriteLine("Backup disposed");
+        _view?.Dispose();
     }
 
 }

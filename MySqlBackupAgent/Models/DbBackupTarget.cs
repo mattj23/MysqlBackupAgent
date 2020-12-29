@@ -210,7 +210,6 @@ namespace MySqlBackupAgent.Models
             if (State != TargetState.Scheduled) return;
             
             _subscription?.Dispose();
-            _infoMessageSubject.OnNext("Running restore");
 
             try
             {
@@ -224,12 +223,13 @@ namespace MySqlBackupAgent.Models
                 await connection.OpenAsync();
 
                 await RestoreTo(connection, backup);
+                _infoMessageSubject.OnNext($"Restore completed at {DateTime.Now}");
             }
             catch (Exception e)
             {
                 // TODO: Logging
                 Console.WriteLine(e);
-                _infoMessageSubject.OnNext("Error occurred while trying to perform backup");
+                _infoMessageSubject.OnNext("Error occurred while trying to restore");
             }
             finally
             {
@@ -412,7 +412,6 @@ namespace MySqlBackupAgent.Models
         private async Task RestoreToMySql(MySqlConnection connection, string filePath)
         {
             State = TargetState.Restoring;
-            Console.WriteLine($"Restore of {filePath} started...");
             _progressSubject.OnNext(0);
             
             await using var cmd = new MySqlCommand();
@@ -423,7 +422,6 @@ namespace MySqlBackupAgent.Models
             await Task.Run(() => restore.ImportFromFile(filePath));
             restore.ImportProgressChanged -= RestoreOnImportProgressChanged;
             await connection.CloseAsync();
-            Console.WriteLine("Restore complete");
         }
 
         /// <summary>
@@ -466,7 +464,6 @@ namespace MySqlBackupAgent.Models
         private async Task DecompressFile(string compressedPath, string destPath)
         {
             State = TargetState.Decompressing;
-            Console.WriteLine("Decompression started");
             await using var outputFileStream = File.OpenWrite(destPath);
             await using var inputFileStream = File.OpenRead(compressedPath);
             await using var readStream = new GZipInputStream(inputFileStream);
@@ -477,7 +474,6 @@ namespace MySqlBackupAgent.Models
                 outputFileStream.Write(buffer);
                 _progressSubject.OnNext((100.0 * inputFileStream.Position) / inputFileStream.Length);
             }
-            Console.WriteLine("Decompression finished");
         }
         
         /// <summary>

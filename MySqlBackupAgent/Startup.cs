@@ -32,11 +32,11 @@ namespace MySqlBackupAgent
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddBootstrapCss();
+
+            services.AddScoped<TimeZoneService>();
             
             // Storage Service
             services.AddTransient(x => StorageServiceFactory.Build(Configuration.GetSection("Storage")));
-            
-
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
