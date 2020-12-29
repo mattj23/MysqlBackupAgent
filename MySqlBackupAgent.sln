@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MySqlBackupAgent", "MySqlBackupAgent\MySqlBackupAgent.csproj", "{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentTests", "AgentTests\AgentTests.csproj", "{3DE12F6D-9FF3-469A-9233-79FEB9F26524}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65702554-6BD4-4E37-A7C4-A75D50F0A4A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DE12F6D-9FF3-469A-9233-79FEB9F26524}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DE12F6D-9FF3-469A-9233-79FEB9F26524}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DE12F6D-9FF3-469A-9233-79FEB9F26524}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DE12F6D-9FF3-469A-9233-79FEB9F26524}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

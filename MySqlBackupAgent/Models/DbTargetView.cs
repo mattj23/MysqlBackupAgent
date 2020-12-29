@@ -24,15 +24,7 @@ namespace MySqlBackupAgent.Models
             _changeSubject = new Subject<Unit>();
             _subscriptions = new List<IDisposable>();
             Backups = new Dictionary<string, DbBackup>();
-            
-            Console.WriteLine($"View Created for {Key}");
         }
-
-        ~DbTargetView()
-        {
-            Console.WriteLine($"View Destroyed for {Key}");
-        }
-
 
         public IObservable<Unit> PropertyChanged => _changeSubject.AsObservable();
         
@@ -87,7 +79,6 @@ namespace MySqlBackupAgent.Models
 
         public void Dispose()
         {
-            Console.WriteLine($"Clearing subscriptions on {Key}");
             foreach (var subscription in _subscriptions)
             {
                 subscription.Dispose();
