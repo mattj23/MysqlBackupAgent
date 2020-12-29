@@ -7,6 +7,7 @@
 @implements IDisposable
 
 @inject BackupTargetService BackupTargets
+@inject TimeZoneService UserTimeZone
 
 <Confirmation @ref=_confirm />
 
@@ -81,7 +82,7 @@
     {
         <tr>
             <!-- Backup Info -->
-            <td>@backup.TimeStamp.ToString()</td>
+            <td>@(UserTimeZone.ToLocal(backup.TimeStamp))</td>
             <td>@((backup.TimeStamp - DateTime.UtcNow).ToHumanReadable())</td>
             <td>@backup.Size.ToHumanReadableSize()</td>
 
@@ -110,7 +111,7 @@
     private Confirmation _confirm;
     private List<DbBackup> _backups;
     
-    protected override void OnInitialized()
+    protected override async void OnInitialized()
     {
         var context = SynchronizationContext.Current;
         if (context == null)
@@ -136,6 +137,8 @@
         Observable.Interval(TimeSpan.FromSeconds(1))
             .ObserveOn(context)
             .Subscribe(l => StateHasChanged());
+
+        await UserTimeZone.LoadOffset();
     }
 
     private void UpdateBackupList()
@@ -177,7 +180,7 @@
 
     public void Dispose()
     {
-        _view.Dispose();
+        _view?.Dispose();
     }
 
 }
