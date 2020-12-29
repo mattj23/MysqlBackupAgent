@@ -196,6 +196,7 @@ namespace MySqlBackupAgent.Models
             finally
             {
                 ScheduleNext();
+                State = TargetState.Scheduled;
             }
         }
 
@@ -233,6 +234,7 @@ namespace MySqlBackupAgent.Models
             finally
             {
                 ScheduleNext();
+                State = TargetState.Scheduled;
             }
         }
 
@@ -328,7 +330,6 @@ namespace MySqlBackupAgent.Models
                 }
             }
 
-            State = TargetState.Scheduled;
             _progressSubject.OnNext(100);
         }
         
@@ -375,7 +376,6 @@ namespace MySqlBackupAgent.Models
                     File.Delete(compressedPath);
                 }
 
-                State = TargetState.Scheduled;
                 _progressSubject.OnNext(100);
             }
         }
@@ -398,7 +398,7 @@ namespace MySqlBackupAgent.Models
 
             backup.ExportProgressChanged += BackupOnExportProgressChanged;
             cmd.Connection = connection;
-            backup.ExportToFile(filePath);
+            await Task.Run(() => backup.ExportToFile(filePath));
             backup.ExportProgressChanged -= BackupOnExportProgressChanged;
             await connection.CloseAsync();
         }
@@ -412,6 +412,7 @@ namespace MySqlBackupAgent.Models
         private async Task RestoreToMySql(MySqlConnection connection, string filePath)
         {
             State = TargetState.Restoring;
+            Console.WriteLine($"Restore of {filePath} started...");
             _progressSubject.OnNext(0);
             
             await using var cmd = new MySqlCommand();
@@ -419,9 +420,10 @@ namespace MySqlBackupAgent.Models
             
             restore.ImportProgressChanged += RestoreOnImportProgressChanged;
             cmd.Connection = connection;
-            restore.ImportFromFile(filePath);
+            await Task.Run(() => restore.ImportFromFile(filePath));
             restore.ImportProgressChanged -= RestoreOnImportProgressChanged;
             await connection.CloseAsync();
+            Console.WriteLine("Restore complete");
         }
 
         /// <summary>
@@ -464,6 +466,7 @@ namespace MySqlBackupAgent.Models
         private async Task DecompressFile(string compressedPath, string destPath)
         {
             State = TargetState.Decompressing;
+            Console.WriteLine("Decompression started");
             await using var outputFileStream = File.OpenWrite(destPath);
             await using var inputFileStream = File.OpenRead(compressedPath);
             await using var readStream = new GZipInputStream(inputFileStream);
@@ -472,8 +475,9 @@ namespace MySqlBackupAgent.Models
             while (await readStream.ReadAsync(buffer) > 0)
             {
                 outputFileStream.Write(buffer);
-                _progressSubject.OnNext(100.0 * inputFileStream.Position / inputFileStream.Length);
+                _progressSubject.OnNext((100.0 * inputFileStream.Position) / inputFileStream.Length);
             }
+            Console.WriteLine("Decompression finished");
         }
         
         /// <summary>

@@ -115,6 +115,7 @@ namespace MySqlBackupAgent.Models
             _subscriptions.Add(target.StateChange.Subscribe(s =>
             {
                 State = s;
+                Console.WriteLine($"{Key} state changed to {s}");
                 _changeSubject.OnNext(default);
             }));
 

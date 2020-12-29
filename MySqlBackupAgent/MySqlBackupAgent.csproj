@@ -74,10 +74,16 @@
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-50.sql.gz" />
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-53.sql" />
       <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\Employees_Test_Database_2020-11-13-01-53.sql.gz" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="wwwroot\scratch_dir" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\0000cb9f4811419f86193831413a5bc0.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\0000cb9f4811419f86193831413a5bc0.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\5ab6f0dfd4944f5bb7a990096be0e1a9.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\5ab6f0dfd4944f5bb7a990096be0e1a9.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\411ff44d8c814c2badb17b66d8894e03.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\411ff44d8c814c2badb17b66d8894e03.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\806b77211346468395a05463aacc9a91.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\806b77211346468395a05463aacc9a91.sql.gz" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\9b1aef24b6be4af8ad915603c267f0c9.sql" />
+      <_ContentIncludedByDefault Remove="wwwroot\scratch_dir\9b1aef24b6be4af8ad915603c267f0c9.sql.gz" />
     </ItemGroup>
 
 </Project>

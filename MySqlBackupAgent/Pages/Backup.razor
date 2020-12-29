@@ -80,7 +80,14 @@
         <tr>
             <td>@backup.TimeStamp.ToString()</td>
             <td>
-                <BSButton Color="Color.Warning" OnClick="@(() => RestoreBackup(backup))">Restore</BSButton>
+                @if (_view.State == TargetState.Scheduled)
+                {
+                    <BSButton Color="Color.Warning" OnClick="@(() => RestoreBackup(backup))">Restore</BSButton>
+                }
+                else
+                {
+                    <span>Target is currently busy...</span>
+                }
             </td>
         </tr>
     }
@@ -131,6 +138,18 @@
 
     private async Task RestoreBackup(DbBackup backup)
     {
+        var result = await _confirm.GetConfirmation("Confirm Restore",
+            $"Are you absolutely sure you want to restore the database to the state it was at {backup.TimeStamp}? The current contents of the database will be overwritten.");
+
+        if (!result) return;
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        
+        result = await _confirm.GetConfirmation("Confirm Restore Again",
+            "Confirm one more time that you want to perform this restore. Take a manual backup of the database first if you are at all unsure.  After you hit OK, the current state of the database will otherwise be lost forever.");
+        
+        if (!result) return;
+        
        _target.RunRestore(backup);
     }
 
