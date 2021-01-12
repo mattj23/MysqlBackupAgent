@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MySql.Data.MySqlClient;
 using MySqlBackupAgent.Services;
+using Org.BouncyCastle.Utilities;
 
 namespace MySqlBackupAgent.Models
 {
@@ -262,7 +263,7 @@ namespace MySqlBackupAgent.Models
             await connection.OpenAsync();
             
             // Get the current database timestamp
-            var timeStamp = await CurrentTimestamp(connection);
+            var timeStamp = await CurrentUtcTimestamp(connection);
             if (!timeStamp.HasValue)
             {
                 throw new Exception($"Could not get the timestamp for the database target '{Name}'");
@@ -283,14 +284,17 @@ namespace MySqlBackupAgent.Models
                 // Get the timestamp of the last update to any of the database's tables
                 string query = $"select max(update_time) from information_schema.tables where TABLE_SCHEMA='{connection.Database}'";
                 var lastUpdate = await FromQuery(connection, query);
-                if (!lastUpdate.HasValue)
+                var zoneOffset = await TimeZoneOffset(connection);
+                if (!lastUpdate.HasValue || !zoneOffset.HasValue)
                 {
                     throw new Exception($"Could not get the last update time for the database target '{Name}'");
                 }
 
+                var lastUpdateUtc = lastUpdate - zoneOffset;
+
                 // Check to see if the current update timestamp in the database (lastUpdate) is older than the 
                 // most recent backup.  If it is, the database hasn't been updated and we can abort the backup.
-                if (Backups.HasMoreRecentThan(lastUpdate.Value))
+                if (Backups.HasMoreRecentThan(lastUpdateUtc.Value))
                 {
                     _infoMessageSubject.OnNext("Database has not been updated since last backup."); 
                     State = TargetState.Scheduled;
@@ -524,13 +528,27 @@ namespace MySqlBackupAgent.Models
         /// <summary>
         /// Gets the current database time as a DateTime, or returns null if the query doesn't return anything. Use this
         /// to determine what the database time is, which should be used by the backup system to timestamp the backups
-        /// themselves.
+        /// themselves. 
         /// </summary>
         /// <param name="connection"></param>
         /// <returns></returns>
-        private Task<DateTime?> CurrentTimestamp(MySqlConnection connection)
+        private Task<DateTime?> CurrentUtcTimestamp(MySqlConnection connection)
         {
             return FromQuery(connection, "SELECT CURRENT_TIMESTAMP()");
+        }
+
+        private async Task<TimeSpan?> TimeZoneOffset(MySqlConnection connection)
+        {
+            var command = new MySqlCommand("SELECT TIMEDIFF(NOW(), UTC_TIMESTAMP)", connection);
+            
+            await using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                if (reader[0] is TimeSpan result) return result;
+            }
+            
+            return null;
         }
     }
 }
