@@ -534,7 +534,7 @@ namespace MySqlBackupAgent.Models
         /// <returns></returns>
         private Task<DateTime?> CurrentUtcTimestamp(MySqlConnection connection)
         {
-            return FromQuery(connection, "SELECT CURRENT_TIMESTAMP()");
+            return FromQuery(connection, "SELECT UTC_TIMESTAMP()");
         }
 
         private async Task<TimeSpan?> TimeZoneOffset(MySqlConnection connection)
